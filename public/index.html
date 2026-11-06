@@ -45,6 +45,7 @@
       <button class="tab" data-view="learn">LearnTrack</button>
       <button class="tab" data-view="agents">AI Agents</button>
       <button class="tab" data-view="studio">F4 Studio</button>
+      <button class="tab" data-view="homecare">Home Care</button>
       <button class="tab" data-view="integrations">4000 Connect</button>
       <button class="tab admin-only" data-view="payments">Payment Time</button>
       <button class="tab admin-only" data-view="governance">AI Governance</button>
@@ -238,6 +239,26 @@
         </div>
         <div class="filters" id="int-filters"></div>
         <div id="integration-grid" class="grid"></div>
+      </section>
+
+      <!-- Home Care Command Center -->
+      <section id="homecare" class="view">
+        <div class="row-between"><h1>Home Care Command Center</h1><a class="btn" id="hc-poc" href="/api/homecare/plan-of-correction.csv">Download plan of correction</a></div>
+        <p class="lead">Readiness for the 15 home health Conditions of Participation (42 CFR Part 484). Every "No" becomes a tracked deficiency.</p>
+        <div id="hc-ij" class="notice bad hidden"></div>
+        <div id="hc-msg" class="notice hidden"></div>
+        <div class="kpis">
+          <div class="kpi k1"><span class="ki">◎</span><div><b id="hc-ready">–</b><small>Overall readiness</small></div></div>
+          <div class="kpi k2"><span class="ki">▤</span><div><b id="hc-assessed">0/15</b><small>Conditions assessed</small></div></div>
+          <div class="kpi k3"><span class="ki">!</span><div><b id="hc-open">0</b><small>Open deficiencies</small></div></div>
+          <div class="kpi k4"><span class="ki">⏱</span><div><b id="hc-overdue">0</b><small>Overdue actions</small></div></div>
+        </div>
+        <div id="hc-tiles" class="grid hc-tiles"></div>
+        <div id="hc-form" class="panel hidden"></div>
+        <div class="panel"><h2>Deficiencies and corrective actions</h2>
+          <p class="small muted">Possible immediate jeopardy cannot move past Open until leadership notification, patient protection and evidence preservation are recorded. Closing needs evidence, and the person who did the fix cannot verify it.</p>
+          <div id="hc-defs"></div></div>
+        <p class="small muted" id="hc-notice"></p>
       </section>
 
       <!-- Payment Time -->

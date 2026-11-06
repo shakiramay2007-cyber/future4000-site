@@ -59,7 +59,7 @@ function startApp() {
   $$('.admin-strict').forEach((el) => el.classList.toggle('hidden', !isAdmin()));
   $$('.editor-only').forEach((el) => el.classList.toggle('hidden', !isEditor()));
   if (!isAdmin()) $('[data-view="billing"]').classList.add('hidden');
-  loadDashboard(); loadPolicies().then(loadLearn); loadTemplates(); loadAgents(); loadIntegrations();
+  loadDashboard(); loadPolicies().then(loadLearn); loadTemplates(); loadAgents(); loadIntegrations(); loadHomeCare().catch((e) => show($('#hc-msg'), e.message, 'bad'));
   if (isEditor()) { loadTeam(); loadAudit(); loadActivity(); loadGovernance(); initPayments(); loadPayments().catch((e) => show($('#pt-msg'), e.message, 'bad')); }
   if (isAdmin()) loadBilling();
   if (new URLSearchParams(location.search).get('billing') === 'done') {
@@ -481,6 +481,81 @@ async function connectPay() {
     await renderPayConnections();
   } catch (e) { show($('#pay-msg'), e.message, 'bad'); }
   finally { btn.disabled = false; btn.textContent = 'Connect and test'; }
+}
+
+// ---------- Home Care Command Center ----------
+let HC = null;
+async function loadHomeCare() {
+  HC = await api('/api/homecare/cops');
+  const defs = await api('/api/homecare/deficiencies');
+  const open = defs.filter((d) => d.status !== 'closed');
+  $('#hc-ready').textContent = HC.overallReadiness === null ? '–' : `${HC.overallReadiness}%`;
+  $('#hc-assessed').textContent = `${HC.assessed}/${HC.total}`;
+  $('#hc-open').textContent = open.length;
+  $('#hc-overdue').textContent = open.filter((d) => d.overdue).length;
+  $('#hc-notice').textContent = HC.notice;
+  const ij = open.filter((d) => d.severity === 'immediate_jeopardy');
+  $('#hc-ij').classList.toggle('hidden', !ij.length);
+  $('#hc-ij').textContent = ij.length ? `Possible immediate jeopardy: ${ij.length} open item(s). Notify leadership and protect patients now.` : '';
+  $('#hc-tiles').innerHTML = HC.cops.map((c) => `<div class="card hc-tile ${c.immediateJeopardy ? 'ij' : ''}" data-cop="${c.id}">
+      <div class="row-between"><span class="tag">§${esc(c.section)}</span><b>${c.readiness === null ? 'Not assessed' : c.readiness + '%'}</b></div>
+      <h3>${esc(c.title)}</h3><p class="small">${esc(c.summary)}</p>
+      <p class="small muted">${c.openDeficiencies} open deficienc${c.openDeficiencies === 1 ? 'y' : 'ies'} · last assessed ${c.lastAssessed ? new Date(c.lastAssessed).toLocaleDateString() : 'never'}</p>
+      ${isEditor() || ME?.role === 'clinician_reviewer' ? '<button>Assess</button>' : ''}</div>`).join('');
+  $$('#hc-tiles .hc-tile button').forEach((b) => b.addEventListener('click', () => openHcForm(b.closest('.hc-tile').dataset.cop)));
+  const sev = { standard: 'Standard', condition: 'Condition-level', immediate_jeopardy: 'Possible immediate jeopardy' };
+  $('#hc-defs').innerHTML = defs.length ? defs.map((d) => `<div class="card hc-def ${d.severity === 'immediate_jeopardy' && d.status !== 'closed' ? 'ij' : ''}" data-id="${d.id}">
+      <div class="row-between"><span class="tag">${esc(label(d.status))}</span><span class="small">${d.overdue ? '<b class="warn">Overdue</b> · ' : ''}${esc(sev[d.severity])}</span></div>
+      <p>${esc(d.description)}</p>
+      ${d.status === 'closed' ? `<p class="small muted">Closed ${when(d.closedAt)}. Evidence: ${esc(d.evidence || '')}</p>` : `
+      <div class="hc-edit">
+        <label>Severity <select data-k="severity">${Object.entries(sev).map(([k, v]) => `<option value="${k}" ${k === d.severity ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+        <label>Responsible (role or name) <input data-k="responsible" value="${esc(d.responsible || '')}"></label>
+        <label>Action plan <textarea data-k="actionPlan" rows="2">${esc(d.actionPlan || '')}</textarea></label>
+        <label>Due date <input type="date" data-k="dueDate" value="${d.dueDate ? String(d.dueDate).slice(0, 10) : ''}"></label>
+        <label>Evidence the fix works <textarea data-k="evidence" rows="2">${esc(d.evidence || '')}</textarea></label>
+        <div class="hc-ijbox ${d.severity === 'immediate_jeopardy' ? '' : 'hidden'}">
+          <label><input type="checkbox" data-ij="leadershipNotified" ${d.ij.leadershipNotified ? 'checked' : ''}> Leadership notified</label>
+          <label><input type="checkbox" data-ij="patientsProtected" ${d.ij.patientsProtected ? 'checked' : ''}> Patients protected</label>
+          <label><input type="checkbox" data-ij="evidencePreserved" ${d.ij.evidencePreserved ? 'checked' : ''}> Evidence preserved</label></div>
+        <div class="row-between"><button data-act="save">Save</button>
+          ${{ open: '<button class="primary" data-to="in_progress">Start correction</button>', in_progress: '<button class="primary" data-to="ready_to_verify">Ready to verify</button>', ready_to_verify: '<button class="primary" data-to="closed">Verify and close</button>' }[d.status] || ''}</div>
+        <div class="result small"></div></div>`}</div>`).join('') : '<p class="muted">No deficiencies yet. Assess a condition to start.</p>';
+  $$('#hc-defs .hc-def').forEach((card) => {
+    const sel = $('select[data-k="severity"]', card);
+    if (sel) sel.addEventListener('change', () => $('.hc-ijbox', card).classList.toggle('hidden', sel.value !== 'immediate_jeopardy'));
+    $$('button', card).forEach((b) => b.addEventListener('click', async () => {
+      const body = { ij: {} };
+      $$('[data-k]', card).forEach((el) => { body[el.dataset.k] = el.value; });
+      $$('[data-ij]', card).forEach((el) => { body.ij[el.dataset.ij] = el.checked; });
+      if (b.dataset.to) body.status = b.dataset.to;
+      try { await api(`/api/homecare/deficiencies/${card.dataset.id}`, { method: 'PATCH', body }); loadHomeCare(); }
+      catch (e) { $('.result', card).innerHTML = `<span class="warn">${esc(e.message)}</span>`; }
+    }));
+  });
+}
+function openHcForm(copId) {
+  const c = HC.cops.find((x) => x.id === copId);
+  const f = $('#hc-form');
+  f.classList.remove('hidden');
+  f.innerHTML = `<div class="row-between"><h2>§${esc(c.section)} ${esc(c.title)}</h2><button id="hc-close">Close</button></div>
+    <p class="small muted">Answer for your agency today. Never enter patient names or record numbers in notes.</p>
+    ${c.questions.map((qn) => `<div class="hc-q" data-q="${qn.id}"><p>${esc(qn.text)}</p>
+      <div class="hc-opts">${['yes', 'no', 'na'].map((v) => `<label><input type="radio" name="${qn.id}" value="${v}" ${c.lastAnswers[qn.id] === v ? 'checked' : ''}> ${v === 'na' ? 'N/A' : v[0].toUpperCase() + v.slice(1)}</label>`).join('')}</div>
+      <input class="hc-note" placeholder="Finding if No (optional)"></div>`).join('')}
+    <button class="primary" id="hc-submit">Save assessment</button>`;
+  f.scrollIntoView({ behavior: 'smooth' });
+  $('#hc-close').onclick = () => f.classList.add('hidden');
+  $('#hc-submit').onclick = async () => {
+    const answers = {}, notes = {};
+    $$('.hc-q', f).forEach((el) => { answers[el.dataset.q] = $('input[type=radio]:checked', el)?.value; notes[el.dataset.q] = $('.hc-note', el).value; });
+    try {
+      const r = await api('/api/homecare/assessments', { method: 'POST', body: { cop: c.id, answers, notes } });
+      f.classList.add('hidden');
+      show($('#hc-msg'), `Assessment saved. ${r.deficienciesCreated} new deficienc${r.deficienciesCreated === 1 ? 'y' : 'ies'} created.`, 'ok');
+      loadHomeCare();
+    } catch (e) { show($('#hc-msg'), e.message, 'bad'); }
+  };
 }
 
 // ---------- Payment Time ----------

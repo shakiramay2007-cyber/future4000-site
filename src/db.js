@@ -6,6 +6,7 @@ import { GOV_SCHEMA } from './governance.js';
 import { JOBS_SCHEMA } from './jobs.js';
 import { PAY_SCHEMA } from './pay.js';
 import { CONNECT_SCHEMA } from './connect.js';
+import { HC_SCHEMA } from './homecare.js';
 
 const { Pool } = pg;
 
@@ -163,6 +164,7 @@ export async function migrate() {
   await q(JOBS_SCHEMA);
   await q(PAY_SCHEMA);
   await q(CONNECT_SCHEMA);
+  await q(HC_SCHEMA);
   for (const r of REGULATION_SEED) {
     await q(
       `INSERT INTO regulations (code, title, level, authority, state, applies_to_types, applies_to_services, summary, required_policies)

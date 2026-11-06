@@ -307,3 +307,17 @@ body { text-rendering: optimizeLegibility; font-feature-settings: "cv11", "ss01"
 #pay-live-confirm.hidden { display: none; }
 #pay-connections { margin: 12px 0 20px; }
 #pay-connections .row-between { gap: 8px; flex-wrap: wrap; }
+
+/* Home Care Command Center */
+.hc-tiles { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin: 16px 0; }
+.hc-tile h3 { margin: 10px 0 6px; font-size: 16px; }
+.hc-tile.ij, .hc-def.ij { border-color: #fca5a5; box-shadow: 0 0 0 2px #fee2e2; }
+.hc-q { border-top: 1px solid var(--line); padding: 12px 0; }
+.hc-q p { margin: 0 0 8px; font-weight: 600; }
+.hc-opts { display: flex; gap: 18px; margin-bottom: 8px; }
+.hc-opts label { display: inline-flex; gap: 6px; align-items: center; }
+.hc-def { margin-bottom: 12px; }
+.hc-edit { display: grid; gap: 8px; margin-top: 8px; }
+.hc-ijbox { display: flex; gap: 18px; flex-wrap: wrap; background: #fef2f2; padding: 8px 12px; border-radius: 8px; }
+.hc-ijbox label { display: inline-flex; gap: 6px; align-items: center; }
+.hc-ijbox.hidden, #hc-form.hidden { display: none; }
