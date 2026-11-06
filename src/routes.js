@@ -10,6 +10,7 @@ import { scrubPHI } from './phi.js';
 import { PLANS } from './plans.js';
 import { runDailyScan, SCAN_SCHEMA } from './scan.js';
 import { PACKS, skeleton } from './templates.js';
+import { aiPaused } from './governance.js';
 
 export const router = express.Router();
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
@@ -173,6 +174,8 @@ router.post('/policies', requireRole(...EDITORS), wrap(async (req, res) => {
   const org = (await q('SELECT * FROM organizations WHERE id = $1', [req.user.org_id])).rows[0];
   let text = body, source = 'manual', model = null, phi = null;
   if (generate) {
+    const paused = await aiPaused(req.user.org_id);
+    if (paused) throw bad(paused, 423);
     const orgContext = `${org.name}; type ${org.org_type || 'not set'}; state ${org.state || 'not set'}; services ${(org.services || []).join(', ') || 'not set'}; beds ${org.beds || 'n/a'}; accreditor ${org.accreditor || 'not set'}.`;
     const r = await runAgent('policy-writer', `${title}${body ? `\n\nAdditional instructions: ${body}` : ''}`, { orgContext });
     text = r.output; source = 'ai'; model = r.model; phi = r.phi;
@@ -269,6 +272,8 @@ router.get('/audit', requireRole('admin', 'compliance_officer'), wrap(async (req
 
 // ---------- Agents (logged-in, with organization context) ----------
 router.post('/org/agents/:id/run', requireUser, wrap(async (req, res) => {
+  const paused = await aiPaused(req.user.org_id);
+  if (paused) throw bad(paused, 423);
   const org = (await q('SELECT name, org_type, state, services, accreditor FROM organizations WHERE id=$1', [req.user.org_id])).rows[0];
   let documents;
   const files = req.body?.documents || (req.body?.document ? [req.body.document] : []);
@@ -307,6 +312,7 @@ router.post('/templates/:id/apply', requireRole(...EDITORS), wrap(async (req, re
   const pack = PACKS.find((p) => p.id === req.params.id);
   if (!pack) throw bad('Template not found.', 404);
   const useAI = Boolean(req.body?.ai);
+  if (useAI) { const paused = await aiPaused(req.user.org_id); if (paused) throw bad(paused, 423); }
   const org = (await q('SELECT * FROM organizations WHERE id=$1', [req.user.org_id])).rows[0];
   const regs = (await q('SELECT * FROM regulations WHERE code = ANY($1)', [pack.regs])).rows;
   const existing = new Set((await q('SELECT lower(title) AS t FROM policies WHERE org_id=$1', [req.user.org_id])).rows.map((r) => r.t));

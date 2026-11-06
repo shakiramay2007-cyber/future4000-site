@@ -4,6 +4,7 @@ import express from 'express';
 import { q } from './db.js';
 import { requireUser, requireRole, audit } from './auth.js';
 import { complete, aiConfigured } from './ai.js';
+import { aiPaused } from './governance.js';
 
 export const LEARN_SCHEMA = `
 CREATE TABLE IF NOT EXISTS courses (
@@ -77,7 +78,8 @@ learnRouter.post('/courses', requireRole('admin', 'compliance_officer'), wrap(as
   if (!p) throw bad('Choose an approved policy.', 404);
   const body = (await q('SELECT body FROM policy_versions WHERE policy_id=$1 AND version=$2', [p.id, p.current_version])).rows[0].body;
   let content, source = 'ai', model = null;
-  if (aiConfigured()) {
+  const paused = await aiPaused(req.user.org_id);
+  if (aiConfigured() && !paused) {
     const r = await complete('standard', COURSE_PROMPT, `Policy title: ${p.title}\n\n${body}`);
     content = { ...parseCourse(r.text), reading: body };
     model = r.model;

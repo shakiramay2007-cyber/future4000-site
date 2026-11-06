@@ -220,3 +220,19 @@ details summary { cursor: pointer; color: var(--teal-2); font-weight: 600; margi
 .faq summary { color: var(--navy); font-size: 16px; } .faq p { color: var(--muted); line-height: 1.6; margin: 10px 0 0; }
 @media (max-width: 1000px) { .steps, .agent-cols, .audience, .split-2 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { .steps, .agent-cols, .audience, .split-2 { grid-template-columns: 1fr; } .shell main { padding: 20px; } }
+.danger { background: #dc2626; color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(220,38,38,.3); }
+.risk-low { background: #dcfce7; color: var(--ok); } .risk-medium { background: #fef3c7; color: var(--warn); } .risk-high { background: #fee2e2; color: var(--bad); }
+.dash-grid.two-col { grid-template-columns: 1fr 1fr; }
+.two-inline { display: flex; gap: 8px; } .two-inline select { margin: 6px 0; }
+.sev-medium { background: #f59e0b !important; } .sev-high { background: #dc2626 !important; }
+.act small { display: block; }
+.gov-area { color: var(--teal-2); margin: 22px 0 8px; font-size: 15px; text-transform: uppercase; letter-spacing: .06em; }
+.gq { margin-bottom: 10px; } .gq label { font-weight: 600; color: var(--navy); font-size: 14px; display: flex; gap: 10px; align-items: center; }
+.gq-n { width: 26px; height: 26px; border-radius: 50%; background: #edf1f6; color: var(--muted); display: inline-grid; place-items: center; font-size: 12px; flex: none; }
+.gq-n.ok { background: var(--teal); color: #fff; } .gq textarea { margin-top: 6px; }
+.lib-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.lib { text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow); }
+.lib b { color: var(--navy); } .lib span { color: var(--muted); font-size: 12px; line-height: 1.5; } .lib.copied { border-color: var(--teal); background: #e7faf7; }
+.matrix { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; } .matrix h3 { margin: 0 0 8px; color: var(--navy); font-size: 15px; }
+.matrix .check { display: flex; margin: 6px 0; text-transform: none; }
+@media (max-width: 1000px) { .lib-grid, .matrix, .dash-grid.two-col { grid-template-columns: 1fr 1fr; } }

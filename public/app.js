@@ -60,7 +60,7 @@ function startApp() {
   $$('.editor-only').forEach((el) => el.classList.toggle('hidden', !isEditor()));
   if (!isAdmin()) $('[data-view="billing"]').classList.add('hidden');
   loadDashboard(); loadPolicies().then(loadLearn); loadTemplates(); loadAgents(); loadIntegrations();
-  if (isEditor()) { loadTeam(); loadAudit(); loadActivity(); }
+  if (isEditor()) { loadTeam(); loadAudit(); loadActivity(); loadGovernance(); }
   if (isAdmin()) loadBilling();
   if (new URLSearchParams(location.search).get('billing') === 'done') {
     $('[data-view="billing"]').click();
@@ -428,6 +428,118 @@ $('#portal-btn').addEventListener('click', async () => {
   try { location.href = (await api('/api/billing/portal', { method: 'POST' })).url; } catch (e) { show($('#billing-msg'), e.message, 'bad'); }
 });
 
+// ---------- AI Governance ----------
+let GOV = null;
+async function loadGovernance() {
+  if (!isEditor()) return;
+  GOV = await api('/api/governance/overview');
+  $('#gov-ready').textContent = `${GOV.readiness}%`;
+  $('#gov-systems').textContent = GOV.systems.filter((x) => x.status !== 'retired').length;
+  $('#gov-open').textContent = GOV.incidents.filter((x) => x.status === 'open').length;
+  $('#gov-overrides').textContent = GOV.overrides.length;
+  $('#gov-decisions').textContent = GOV.decisions.length;
+  $('#gov-pause-box').innerHTML = GOV.paused
+    ? `<span class="tag st-retired">AI PAUSED</span> <button class="primary" id="gov-resume">Resume AI</button>`
+    : `<button class="danger" id="gov-pause">Pause all AI now</button>`;
+  if (GOV.paused) show($('#gov-msg'), GOV.paused_reason, 'bad'); else $('#gov-msg').classList.add('hidden');
+  $('#gov-pause')?.addEventListener('click', async () => {
+    const reason = prompt('Reason for pausing all AI (recorded in the audit log):');
+    if (!reason) return;
+    try { await api('/api/governance/pause', { method: 'POST', body: { pause: true, reason } }); loadGovernance(); } catch (e) { show($('#gov-msg'), e.message, 'bad'); }
+  });
+  $('#gov-resume')?.addEventListener('click', async () => { await api('/api/governance/pause', { method: 'POST', body: { pause: false } }); loadGovernance(); });
+  const src = { approved: 'Approved', embedded_vendor: 'Vendor update', shadow: 'Shadow AI' };
+  $('#gov-sys-body').innerHTML = GOV.systems.map((x) => `<tr><td><b>${esc(x.name)}</b><br><span class="small muted">${esc(x.vendor || '')}</span></td>
+    <td>${esc(src[x.source])}</td><td><span class="tag risk-${x.risk_level}">${esc(x.risk_level)}</span></td>
+    <td class="small">Exec: ${esc(x.executive_owner || 'not named')}<br>System: ${esc(x.system_owner || 'not named')}<br>Domain: ${esc(x.domain_owner || 'not named')}</td>
+    <td class="small">${esc(x.human_approval_boundary || 'not defined')}</td><td><span class="tag st-${x.status === 'active' ? 'approved' : 'retired'}">${esc(x.status)}</span></td>
+    <td class="small">${esc(String(x.next_review || '').slice(0, 10))}</td></tr>`).join('');
+  $('#gov-sys-select').innerHTML = '<option value="">Which system?</option>' + GOV.systems.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  $('#gov-incidents').innerHTML = GOV.incidents.map((i) => `<div class="act"><i class="sev-${i.severity}"></i><div><b>${esc(label(i.kind))} · ${esc(i.severity)} · ${esc(i.status)}</b>
+    <small>${esc(i.description)}</small><small>${esc(i.system_name || '')} · ${esc(i.reporter || '')} · ${when(i.created_at)}</small>
+    ${i.status === 'open' ? `<a href="#" data-close="${i.id}" class="small">Close</a>` : ''}</div></div>`).join('') || '<p class="muted small">No reports yet.</p>';
+  $$('[data-close]').forEach((a) => a.addEventListener('click', async (e) => { e.preventDefault(); await api(`/api/governance/incidents/${a.dataset.close}/close`, { method: 'POST', body: {} }); loadGovernance(); }));
+  $('#gov-decisions-list').innerHTML = GOV.decisions.slice(0, 15).map((d) => `<div class="act"><i></i><div><b>${esc(label(d.action.replace(/\./g, ' ')))}</b>
+    <small>${esc(d.user_name || 'system')} · ${when(d.created_at)}${d.detail?.model ? ` · ${esc(d.detail.model)}` : ''}</small></div></div>`).join('') || '<p class="muted small">No AI decisions yet.</p>';
+  let area = '';
+  $('#gov-questions').innerHTML = GOV.questions.map((g) => {
+    const head = g.area !== area ? `<h3 class="gov-area">${esc((area = g.area))}</h3>` : '';
+    const ok = String(GOV.answers[g.key] || '').trim().length >= 10;
+    return `${head}<div class="gq"><label><span class="gq-n ${ok ? 'ok' : ''}">${g.n}</span> ${esc(g.question)}</label>
+      <textarea rows="2" data-key="${g.key}" placeholder="Your organization's answer">${esc(GOV.answers[g.key] || '')}</textarea></div>`;
+  }).join('');
+}
+$('#gov-add-btn').addEventListener('click', () => $('#gov-add').classList.toggle('hidden'));
+$('#gov-add').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try { await api('/api/governance/systems', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); e.target.reset(); e.target.classList.add('hidden'); loadGovernance(); }
+  catch (err) { show($('#gov-msg'), err.message, 'bad'); }
+});
+$('#gov-report').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try { await api('/api/governance/incidents', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); e.target.reset(); loadGovernance(); }
+  catch (err) { show($('#gov-msg'), err.message, 'bad'); }
+});
+$('#gov-save').addEventListener('click', async () => {
+  const answers = Object.fromEntries($$('#gov-questions textarea').map((t) => [t.dataset.key, t.value]));
+  try { await api('/api/governance/answers', { method: 'PUT', body: { answers } }); show($('#gov-msg'), 'Answers saved.', 'ok'); loadGovernance(); }
+  catch (err) { show($('#gov-msg'), err.message, 'bad'); }
+});
+
+// ---------- F4 Studio: library, matrix, pipeline ----------
+const STUDIO_LIBRARY = [
+  ['Clean-up pass', 'Remove filler words, false starts, repeated takes and silences over 0.6 seconds. Never cut mid-sentence and never change pitch. Show me your cut list with timestamps before editing.'],
+  ['Teaching pace', 'Keep natural pauses between teaching points. Where the speaker moves to a new point, leave a 1-second beat. Remove only silences longer than 1.2 seconds.'],
+  ['Presenter lock (vertical)', 'Reframe this 16:9 video to 9:16. Keep the presenter centered. When they move, pan smoothly; no sudden jumps. Keep any on-screen text fully inside the frame.'],
+  ['Slides over speaker', 'Make a 9:16 layout: top half shows the slides cropped to a square; bottom half shows the presenter in a centered circle on a solid brand-color background.'],
+  ['Triple stack', 'Make a 9:16 layout: top 40% slides, middle 35% presenter tracking crop, bottom 25% solid dark panel reserved for captions.'],
+  ['Picture-in-picture', 'Keep the screen recording full-frame. Put the presenter in a circle in the bottom-right corner at 15% of the frame, in the same spot across every cut.'],
+  ['Letterbox with blur', 'Place the original 16:9 video in the center of a 9:16 canvas. Fill the top and bottom with a blurred, enlarged copy of the same video.'],
+  ['3 best moments', 'Find the 3 strongest teaching moments. Make each a standalone clip under 60 seconds that starts at the beginning of a sentence and ends on a complete thought.'],
+  ['Hook clip', 'Find the single clearest opening statement, 30 to 45 seconds long. Start 5 frames before the first word and add a short audio fade at the end.'],
+  ['Chapters', 'Split this into chapters, one per learning objective, each with a 1-second title slate.'],
+  ['Word-by-word captions', 'Add 1 to 3 words of caption at a time, synced to speech, bold white sans-serif with a black outline, centered in the lower third.'],
+  ['Keyword highlights', 'In captions, show regulations, acronyms, credentials and numbers in bold accent color.'],
+  ['Title and progress bar', 'Add a fixed title bar across the top 10% and a thin progress bar under it that fills left to right over the clip.'],
+  ['Music ducking', 'Lower background music by 18 dB while someone is speaking and bring it back up gently in pauses.'],
+  ['Clean audio', 'Normalize voice peaks to -3 dB, reduce room noise, and add 2-frame audio crossfades at every cut to remove clicks.'],
+  ['Privacy sweep', 'Find every frame showing a patient face, name, wristband, chart, screen with patient data or room number. Blur or cut each one and list the timestamps.']
+];
+const MATRIX = {
+  Layout: ['Keep 16:9 widescreen', 'Vertical 9:16 presenter lock', 'Vertical 9:16 slides over speaker', 'Vertical 9:16 triple stack', 'Picture-in-picture corner', 'Letterbox with blurred fill'],
+  Pacing: ['Teaching pace (silences over 1.2 s)', 'Natural (silences over 0.6 s)', 'Fast (silences over 0.25 s)', 'Extract 3 best clips under 60 s', 'Single 45-second hook clip'],
+  Captions: ['Word-by-word bold captions', 'Two-line captions on brand band', 'Keyword highlights in accent color', 'Title bar plus progress bar', 'No burned-in captions, SRT only'],
+  Audio: ['Leave audio as recorded', 'Music ducking under speech', 'Normalize voice and reduce noise', 'Align multiple microphones']
+};
+$('#studio-library').innerHTML = STUDIO_LIBRARY.map(([t, p], i) => `<button class="lib" data-i="${i}"><b>${esc(t)}</b><span>${esc(p)}</span></button>`).join('');
+$$('#studio-library .lib').forEach((b) => b.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(STUDIO_LIBRARY[b.dataset.i][1]); b.classList.add('copied'); setTimeout(() => b.classList.remove('copied'), 1200); } catch { /* blocked */ }
+}));
+$('#studio-matrix').innerHTML = Object.entries(MATRIX).map(([col, opts]) => `<div><h3>${col}</h3>${opts.map((o, i) =>
+  `<label class="check"><input type="checkbox" data-col="${col}" value="${esc(o)}" ${i < 2 ? 'checked' : ''}> ${esc(o)}</label>`).join('')}</div>`).join('');
+function matrixChoices() { return Object.keys(MATRIX).map((c) => $$(`#studio-matrix input[data-col="${c}"]:checked`).map((x) => x.value)); }
+function matrixCount() { const n = matrixChoices().reduce((a, c) => a * c.length, 1); $('#matrix-count').textContent = `${Math.min(n, 1000)} prompt${n === 1 ? '' : 's'}${n > 1000 ? ' (capped at 1,000)' : ''}`; }
+$('#studio-matrix').addEventListener('change', matrixCount); matrixCount();
+function download(name, data) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+const PRIVACY = 'Never show patient faces, names, wristbands, charts, screens with patient data or room numbers; blur or cut them and list timestamps. Show your plan before editing; keep every change undoable.';
+$('#matrix-go').addEventListener('click', () => {
+  const [L, P, C, A] = matrixChoices();
+  if ([L, P, C, A].some((x) => !x.length)) return alertless('Pick at least one option in each column.');
+  const out = [];
+  for (const l of L) for (const p of P) for (const c of C) for (const a of A) {
+    if (out.length >= 1000) break;
+    out.push({ id: `F4-${String(out.length + 1).padStart(4, '0')}`, layout: l, pacing: p, captions: c, audio: a, prompt: `Layout: ${l}. Pacing: ${p}. Captions: ${c}. Audio: ${a}. ${PRIVACY}` });
+  }
+  download(`f4-studio-prompts-${out.length}.json`, out);
+});
+$('#studio-pipeline').addEventListener('click', () => download('f4-vertical-pipeline.json', {
+  pipeline: 'F4 Studio vertical reformat', aspect: '9:16', stages: [
+    { stage: 1, name: 'Canvas', prompt: STUDIO_LIBRARY[3][1] + ' Track the presenter smoothly.' },
+    { stage: 2, name: 'Trim and extract', prompt: 'Remove silences over 0.25 seconds, filler words and repeated takes; hard video cuts with 2-frame audio crossfades. Then extract the 3 best clips under 60 seconds, each starting at a sentence and ending on a complete thought.' },
+    { stage: 3, name: 'Captions and graphics', prompt: STUDIO_LIBRARY[10][1] + ' ' + STUDIO_LIBRARY[11][1] + ' Add a thin progress bar along the bottom.' },
+    { stage: 4, name: 'Privacy check', prompt: STUDIO_LIBRARY[15][1] }
+  ] }));
+
 // ---------- F4 Studio prompt builder ----------
 function buildStudioPrompt() {
   const f = Object.fromEntries(new FormData($('#studio-form')));
@@ -441,6 +553,7 @@ function buildStudioPrompt() {
     chapters: 'Split the video into clearly titled chapters, one per learning objective, with a 1-second title slate before each chapter.'
   };
   const pace = { calm: 'Keep natural pauses; only remove silences longer than 1.2 seconds, because learners need time to absorb clinical content.', natural: 'Remove silences longer than 0.6 seconds.', fast: 'Remove silences longer than 0.25 seconds and use hard cuts.', max: 'Remove every silence longer than 0.15 seconds and use hard cuts for maximum pace.' };
+  const audio = { duck: 'Lower background music by 18 dB under speech and raise it gently in pauses.', normalize: 'Normalize voice peaks to -3 dB, reduce room noise, and crossfade audio 2 frames at every cut.', multi: 'Align all microphone tracks to remove echo and gate microphones that are not active.' };
   const caps = { word: `Burn in word-by-word captions: large bold sans-serif, white text with the current word highlighted in ${f.c2}, placed in the lower third, readable on a phone.`, line: `Burn in captions as full lines, maximum two rows, white text on a ${f.c1} band at 80% opacity.`, none: 'Do not burn captions into the video.' };
   const lines = [
     `You are editing ${kinds[f.kind]}${f.topic ? ` about "${f.topic}"` : ''}.`,
@@ -450,6 +563,7 @@ function buildStudioPrompt() {
     `3. PACING: ${pace[f.pace]}`,
     `4. CAPTIONS: ${caps[f.captions]}${on('srt') ? ' Also export a matching .srt caption file.' : ''}`,
     f.length ? `5. LENGTH: Keep the final cut under ${f.length >= 60 ? `${f.length / 60} minute${f.length > 60 ? 's' : ''}` : `${f.length} seconds`}. Cut the least important material first, never the safety steps.` : '5. LENGTH: Keep whatever length the content needs; do not cut required steps.',
+    f.audio ? `AUDIO: ${audio[f.audio]}` : null,
     `6. BRAND: Use ${f.c1} as the primary color and ${f.c2} as the accent for titles, bars and highlights.`,
     on('title') ? `7. TITLE CARD: Add a 2-second animated title card at the start${f.topic ? ` reading "${f.topic}"` : ''}.` : null,
     on('lower') ? '8. LOWER-THIRD: When each speaker first appears, show their name and credentials (I will confirm names before export).' : null,

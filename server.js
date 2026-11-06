@@ -2,13 +2,14 @@ import express from 'express';
 import Stripe from 'stripe';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AGENTS, runAgent } from './src/agents.js';
+import { AGENTS } from './src/agents.js';
 import { aiConfigured, aiStatus } from './src/ai.js';
 import { migrate, dbConfigured } from './src/db.js';
 import { loadUser } from './src/auth.js';
 import { router, handleStripeEvent } from './src/routes.js';
 import { storageProvider } from './src/cloud.js';
 import { learnRouter } from './src/learn.js';
+import { govRouter } from './src/governance.js';
 import { listIntegrations, testIntegration } from './src/integrations.js';
 import { PLANS } from './src/plans.js';
 
@@ -57,17 +58,11 @@ app.get('/api/status', (_req, res) => res.json({
 
 app.use('/api', router);
 app.use('/api/learn', learnRouter);
+app.use('/api/governance', govRouter);
 
 // Agents
 app.get('/api/agents', (_req, res) => res.json(AGENTS.map(({ prompt, ...a }) => a)));
-app.post('/api/agents/:id/run', async (req, res) => {
-  try {
-    res.json(await runAgent(req.params.id, req.body?.input));
-  } catch (e) {
-    console.error('Agent error:', e.message);
-    res.status(e.status || 500).json({ error: e.message, phi: e.phi });
-  }
-});
+// Agent runs require sign-in (see /api/org/agents/:id/run) so every AI use is governed and audit-logged.
 
 // Integrations
 app.get('/api/integrations', (_req, res) => res.json(listIntegrations()));

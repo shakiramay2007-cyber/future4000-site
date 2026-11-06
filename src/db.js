@@ -2,6 +2,7 @@
 import pg from 'pg';
 import { REGULATION_SEED } from './regulations.js';
 import { LEARN_SCHEMA } from './learn.js';
+import { GOV_SCHEMA } from './governance.js';
 
 const { Pool } = pg;
 
@@ -149,6 +150,7 @@ export async function migrate() {
   }
   await q(SCHEMA);
   await q(LEARN_SCHEMA);
+  await q(GOV_SCHEMA);
   for (const r of REGULATION_SEED) {
     await q(
       `INSERT INTO regulations (code, title, level, authority, state, applies_to_types, applies_to_services, summary, required_policies)

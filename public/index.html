@@ -43,6 +43,7 @@
       <button class="tab" data-view="agents">AI Agents</button>
       <button class="tab" data-view="studio">F4 Studio</button>
       <button class="tab" data-view="integrations">F4 Connect</button>
+      <button class="tab admin-only" data-view="governance">AI Governance</button>
       <button class="tab admin-only" data-view="team">Team</button>
       <button class="tab admin-only" data-view="audit">Audit Log</button>
       <button class="tab admin-only" data-view="billing">Plan &amp; Billing</button>
@@ -179,6 +180,7 @@
               <label>Brand primary color <input name="c1" type="color" value="#0a1f3c" /></label>
               <label>Brand accent color <input name="c2" type="color" value="#0fb5a6" /></label>
             </div>
+            <label>Audio <select name="audio"><option value="">Leave audio as recorded</option><option value="duck">Lower music 18 dB under speech, raise it in pauses</option><option value="normalize">Normalize voice to -3 dB peaks, reduce room noise</option><option value="multi">Align multiple microphones and gate the inactive ones</option></select></label>
             <fieldset><legend>Add-ons</legend><div class="checks">
               <label class="check"><input type="checkbox" name="title" checked> Animated title card</label>
               <label class="check"><input type="checkbox" name="lower" checked> Speaker name and credentials lower-third</label>
@@ -191,7 +193,14 @@
             <div class="row-between"><h2>Your prompt</h2><button class="primary" id="studio-copy" type="button">Copy prompt</button></div>
             <pre id="studio-out" class="output"></pre>
             <p class="small muted">Paste it into your editor's chat panel. Review the editor's plan before it makes changes.</p>
+            <button class="secondary" type="button" id="studio-pipeline">Download 3-stage vertical pipeline</button>
           </div>
+        </div>
+        <div class="panel"><h2>Prompt library</h2><p class="muted small">Click any recipe to copy it.</p><div id="studio-library" class="lib-grid"></div></div>
+        <div class="panel"><h2>Bulk prompt matrix</h2>
+          <p class="muted small">Pick options in each column. F4 Studio combines every choice into a separate prompt (up to 1,000) and downloads them as one file for batch editing.</p>
+          <div id="studio-matrix" class="matrix"></div>
+          <div class="btn-row"><button class="primary" type="button" id="matrix-go">Generate and download</button><span id="matrix-count" class="muted small"></span></div>
         </div>
       </section>
 
@@ -201,6 +210,47 @@
         <p class="lead">Every connector shows <b>Connected</b> only after its credentials are saved and a live test passes.</p>
         <div class="filters" id="int-filters"></div>
         <div id="integration-grid" class="grid"></div>
+      </section>
+
+      <!-- AI Governance -->
+      <section id="governance" class="view">
+        <div class="row-between"><h1>AI Governance</h1><div id="gov-pause-box"></div></div>
+        <p class="lead">Know where AI is used, who owns it, who can stop it, and the evidence behind every AI-assisted decision.</p>
+        <div id="gov-msg" class="notice hidden"></div>
+        <div class="kpis gov-kpis">
+          <div class="kpi k1"><span class="ki">◎</span><div><b id="gov-ready">0%</b><small>Governance readiness</small></div></div>
+          <div class="kpi k2"><span class="ki">▤</span><div><b id="gov-systems">0</b><small>AI systems in inventory</small></div></div>
+          <div class="kpi k3"><span class="ki">⚑</span><div><b id="gov-open">0</b><small>Open incidents and near-misses</small></div></div>
+          <div class="kpi k4"><span class="ki">↺</span><div><b id="gov-overrides">0</b><small>AI drafts sent back by clinicians</small></div></div>
+          <div class="kpi k5"><span class="ki">✎</span><div><b id="gov-decisions">0</b><small>Logged AI decisions</small></div></div>
+        </div>
+        <div class="panel"><div class="row-between"><h2>AI inventory</h2><button class="secondary" id="gov-add-btn">Add AI system</button></div>
+          <form id="gov-add" class="setup-grid hidden">
+            <label>Name <input name="name" required placeholder="EHR sepsis alert, ambient scribe, chatbot..." /></label>
+            <label>Vendor <input name="vendor" /></label>
+            <label>How it got here <select name="source"><option value="approved">Approved purchase</option><option value="embedded_vendor">Added by a vendor update</option><option value="shadow">Unapproved (shadow AI)</option></select></label>
+            <label>Risk <select name="risk_level"><option>low</option><option selected>medium</option><option>high</option></select></label>
+            <label>Executive owner <input name="executive_owner" /></label><label>System owner <input name="system_owner" /></label>
+            <label>Clinical / domain owner <input name="domain_owner" /></label><label>Next review <input name="next_review" type="date" /></label>
+            <label class="span2">Approved use <input name="approved_use" placeholder="What it may do and what is out of bounds" /></label>
+            <label class="span2">Human approval boundary <input name="human_approval_boundary" placeholder="Where AI stops and a person must decide" /></label>
+            <button class="primary span2">Save to inventory</button>
+          </form>
+          <table class="table"><thead><tr><th>System</th><th>Source</th><th>Risk</th><th>Owners</th><th>Human approval boundary</th><th>Status</th><th>Next review</th></tr></thead><tbody id="gov-sys-body"></tbody></table>
+        </div>
+        <div class="dash-grid two-col">
+          <div class="panel"><h2>Report an incident, near-miss, override or drift</h2>
+            <form id="gov-report"><div class="two-inline">
+              <select name="kind"><option value="near_miss">Near-miss</option><option value="incident">Incident</option><option value="override">Override</option><option value="drift">Drift</option></select>
+              <select name="severity"><option>low</option><option>medium</option><option>high</option></select><select name="system_id" id="gov-sys-select"></select></div>
+              <textarea name="description" rows="3" placeholder="What happened? No patient identifiers." required></textarea>
+              <button class="primary">File report</button></form>
+            <div id="gov-incidents" class="activity"></div></div>
+          <div class="panel"><h2>Decision log</h2><div id="gov-decisions-list" class="activity"></div></div>
+        </div>
+        <div class="panel"><div class="row-between"><h2>25 governance decisions</h2><button class="primary" id="gov-save">Save answers</button></div>
+          <p class="muted small">Answer each question in your own words. An answer of at least 10 characters counts toward readiness.</p>
+          <div id="gov-questions"></div></div>
       </section>
 
       <!-- Team -->
