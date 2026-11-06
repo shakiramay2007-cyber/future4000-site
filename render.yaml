@@ -24,3 +24,37 @@ services:
         sync: false
       - key: FHIR_BASE_URL
         value: https://hapi.fhir.org/baseR4
+      - key: DATABASE_URL
+        fromDatabase:
+          name: future4000-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+
+  # F4 Daily Scan: 13:30 UTC = 8:30 AM Eastern Standard Time (9:30 AM during daylight saving time).
+  - type: cron
+    name: future4000-daily-scan
+    runtime: node
+    region: virginia
+    plan: starter
+    schedule: "30 13 * * *"
+    buildCommand: npm install
+    startCommand: node scripts/daily-scan.js
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: future4000-db
+          property: connectionString
+      - key: SLACK_BOT_TOKEN
+        sync: false
+      - key: SLACK_SCAN_CHANNEL
+        sync: false
+
+databases:
+  - name: future4000-db
+    region: virginia
+    plan: basic-256mb
+    databaseName: future4000
+    user: future4000_admin

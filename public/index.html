@@ -10,58 +10,157 @@
 <body>
   <header class="top">
     <div class="brand"><span class="logo">F4</span> FUTURE4000 <small>Compliance Operating System</small></div>
-    <div id="status" class="status"></div>
+    <div class="top-right"><div id="status" class="status"></div><div id="who" class="who"></div></div>
   </header>
 
-  <nav class="tabs">
-    <button class="tab active" data-view="agents">AI Agents</button>
-    <button class="tab" data-view="integrations">Integrations</button>
-    <button class="tab" data-view="billing">Plans &amp; Payment</button>
-  </nav>
-
-  <main>
-    <section id="agents" class="view active">
-      <h1>AI Agents</h1>
-      <p class="lead">Powered by Claude on AWS Bedrock. Patient identifiers are masked automatically before anything is sent to the AI.</p>
-      <div class="agent-layout">
-        <div id="agent-list" class="agent-list"></div>
-        <div class="agent-work">
-          <h2 id="agent-title">Choose an agent</h2>
-          <p id="agent-summary" class="muted"></p>
-          <textarea id="agent-input" rows="7" placeholder="Example: Hand hygiene policy for a 400-bed teaching hospital in Georgia, Joint Commission accredited."></textarea>
-          <button id="agent-run" class="primary" disabled>Run agent</button>
-          <div id="agent-phi" class="notice hidden"></div>
-          <pre id="agent-output" class="output hidden"></pre>
+  <!-- Sign in / sign up -->
+  <section id="auth" class="auth hidden">
+    <div class="auth-card">
+      <h1 id="auth-title">Sign in</h1>
+      <form id="auth-form">
+        <div class="signup-only hidden">
+          <label>Organization name <input name="organization" maxlength="200" /></label>
+          <label>Your full name <input name="full_name" maxlength="200" /></label>
+          <label>Credentials (optional) <input name="credentials" placeholder="MSN, RN" maxlength="60" /></label>
         </div>
-      </div>
-    </section>
-
-    <section id="integrations" class="view">
-      <h1>Integrations Marketplace</h1>
-      <p class="lead">Each connector shows <b>Connected</b> only after its credentials are saved and a live test passes.</p>
-      <div class="filters">
-        <button class="chip active" data-cat="all">All</button>
-        <button class="chip" data-cat="Healthcare">Healthcare</button>
-        <button class="chip" data-cat="Business">Business</button>
-      </div>
-      <div id="integration-grid" class="grid"></div>
-    </section>
-
-    <section id="billing" class="view">
-      <h1>Plans &amp; Payment</h1>
-      <p class="lead">Billing is for organizations only. Never enter patient information here.</p>
-      <div id="plan-grid" class="grid plans"></div>
-      <form id="pay-form" class="pay hidden">
-        <h2 id="pay-title"></h2>
-        <label>Organization name <input id="org" required maxlength="120" /></label>
-        <label>Billing email <input id="email" type="email" required /></label>
-        <button type="button" id="pay-start" class="primary">Continue to payment</button>
-        <div id="payment-element"></div>
-        <button type="submit" id="pay-submit" class="primary hidden">Pay now</button>
-        <div id="pay-message" class="notice hidden"></div>
+        <label>Email <input name="email" type="email" required /></label>
+        <label>Password <input name="password" type="password" required minlength="12" /></label>
+        <p class="muted small signup-only hidden">At least 12 characters with letters and numbers.</p>
+        <button class="primary" type="submit" id="auth-submit">Sign in</button>
+        <div id="auth-msg" class="notice bad hidden"></div>
       </form>
-    </section>
-  </main>
+      <p class="small"><a href="#" id="auth-toggle">New organization? Create an account</a></p>
+    </div>
+  </section>
+
+  <div id="app" class="hidden">
+    <nav class="tabs">
+      <button class="tab active" data-view="dashboard">Dashboard</button>
+      <button class="tab" data-view="policies">Policies</button>
+      <button class="tab" data-view="agents">AI Agents</button>
+      <button class="tab" data-view="integrations">F4 Connect</button>
+      <button class="tab admin-only" data-view="team">Team</button>
+      <button class="tab admin-only" data-view="audit">Audit Log</button>
+      <button class="tab admin-only" data-view="billing">Plan &amp; Billing</button>
+    </nav>
+
+    <main>
+      <!-- Dashboard / setup -->
+      <section id="dashboard" class="view active">
+        <div id="setup" class="panel hidden">
+          <h1>Set up your organization</h1>
+          <p class="lead">FUTURE4000 maps the federal and accreditation requirements that apply to you.</p>
+          <form id="setup-form" class="setup-grid">
+            <label>Organization type <select name="org_type" id="org-type" required></select></label>
+            <label>State <select name="state" id="org-state" required></select></label>
+            <label>Licensed beds (optional) <input name="beds" type="number" min="0" /></label>
+            <label>Accreditor (optional) <input name="accreditor" placeholder="The Joint Commission, DNV, CHAP..." /></label>
+            <fieldset class="span2"><legend>Services offered</legend><div id="org-services" class="checks"></div></fieldset>
+            <button class="primary span2" type="submit">Build my compliance map</button>
+          </form>
+        </div>
+        <div id="compliance" class="hidden">
+          <div class="score-row">
+            <div class="score"><span id="score-num">0</span>%<small>Regulations covered by an approved policy</small></div>
+            <div class="stat"><b id="stat-regs">0</b><small>Applicable requirements</small></div>
+            <div class="stat"><b id="stat-policies">0</b><small>Policies</small></div>
+            <div class="stat"><b id="stat-review">0</b><small>Awaiting clinician review</small></div>
+          </div>
+          <div class="panel">
+            <div class="row-between"><h2>F4 Daily Scan <small class="muted" id="scan-time"></small></h2><button class="secondary editor-only" id="scan-run">Run scan now</button></div>
+            <div id="scan-summary" class="score-row"></div>
+            <h3>New federal rules and notices</h3>
+            <div id="scan-updates"></div>
+          </div>
+          <h2>Your compliance map</h2>
+          <div id="reg-list" class="reg-list"></div>
+        </div>
+      </section>
+
+      <!-- Policies -->
+      <section id="policies" class="view">
+        <div class="row-between"><h1>Policies</h1><button class="primary editor-only" id="new-policy-btn">New policy</button></div>
+        <form id="new-policy" class="panel hidden">
+          <h2>New policy</h2>
+          <label>Title <input name="title" required placeholder="Hand Hygiene" /></label>
+          <label>Domain <input name="domain" placeholder="Infection Control" /></label>
+          <label>Instructions or full text <textarea name="body" rows="6" placeholder="For AI: describe special requirements. For manual: paste the full policy."></textarea></label>
+          <label>Linked requirements</label>
+          <div id="new-policy-regs" class="checks"></div>
+          <div class="btn-row">
+            <button class="primary" type="submit" data-generate="1">Generate with AI</button>
+            <button class="secondary" type="submit" data-generate="0">Save as written</button>
+          </div>
+          <div id="new-policy-msg" class="notice hidden"></div>
+        </form>
+        <div class="policy-layout">
+          <div id="policy-list" class="policy-list"></div>
+          <div id="policy-detail" class="panel hidden"></div>
+        </div>
+      </section>
+
+      <!-- Agents -->
+      <section id="agents" class="view">
+        <h1>AI Agents</h1>
+        <p class="lead">F4 Intelligence routes each request to Claude on AWS Bedrock first, then backup providers. Patient identifiers are masked before anything leaves FUTURE4000.</p>
+        <div class="agent-layout">
+          <div id="agent-list" class="agent-list"></div>
+          <div class="panel">
+            <h2 id="agent-title">Choose an agent</h2>
+            <p id="agent-summary" class="muted"></p>
+            <textarea id="agent-input" rows="7" placeholder="Example: Hand hygiene policy for our ICU and surgical units."></textarea>
+            <button id="agent-run" class="primary" disabled>Run agent</button>
+            <div id="agent-phi" class="notice hidden"></div>
+            <pre id="agent-output" class="output hidden"></pre>
+            <p id="agent-model" class="muted small"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Integrations -->
+      <section id="integrations" class="view">
+        <h1>F4 Connect</h1>
+        <p class="lead">Every connector shows <b>Connected</b> only after its credentials are saved and a live test passes.</p>
+        <div class="filters" id="int-filters"></div>
+        <div id="integration-grid" class="grid"></div>
+      </section>
+
+      <!-- Team -->
+      <section id="team" class="view">
+        <h1>Team</h1>
+        <form id="add-user" class="panel inline-form admin-strict">
+          <input name="full_name" placeholder="Full name" required />
+          <input name="credentials" placeholder="Credentials" />
+          <input name="email" type="email" placeholder="Email" required />
+          <select name="role">
+            <option value="staff">Staff</option>
+            <option value="clinician_reviewer">Clinician reviewer</option>
+            <option value="compliance_officer">Compliance officer</option>
+            <option value="admin">Admin</option>
+          </select>
+          <input name="password" type="password" placeholder="Temporary password (12+)" required minlength="12" />
+          <button class="primary">Add</button>
+        </form>
+        <div id="team-msg" class="notice hidden"></div>
+        <table class="table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Last sign-in</th></tr></thead><tbody id="team-body"></tbody></table>
+      </section>
+
+      <!-- Audit -->
+      <section id="audit" class="view">
+        <div class="row-between"><h1>Audit Log</h1><a class="secondary btn" href="/api/audit?format=csv&limit=1000">Download CSV</a></div>
+        <table class="table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Item</th><th>Details</th></tr></thead><tbody id="audit-body"></tbody></table>
+      </section>
+
+      <!-- Billing -->
+      <section id="billing" class="view">
+        <div class="row-between"><h1>Plan &amp; Billing</h1><button class="secondary" id="portal-btn">Manage billing</button></div>
+        <p class="lead">Billing is for your organization only. Never enter patient information here. Current plan: <b id="current-plan">none</b></p>
+        <div id="plan-grid" class="grid plans"></div>
+        <div id="checkout" class="panel hidden"></div>
+        <div id="billing-msg" class="notice hidden"></div>
+      </section>
+    </main>
+  </div>
 
   <script src="/app.js"></script>
 </body>

@@ -1,0 +1,88 @@
+// Core federal and accreditation requirements used to auto-fill an organization's compliance map.
+// State rules vary by state and service; the Regulation Mapper agent drafts those for review.
+// types: hospital, teaching_hospital, clinic, behavioral_health, home_health, long_term_care, university, government, any
+const ALL_HEALTH = ['hospital', 'teaching_hospital', 'clinic', 'behavioral_health', 'home_health', 'long_term_care'];
+
+export const REGULATION_SEED = [
+  { code: 'HIPAA-PRIVACY', title: 'HIPAA Privacy Rule', level: 'federal', authority: 'HHS OCR', types: ALL_HEALTH,
+    summary: 'Limits use and disclosure of protected health information and gives patients rights over their records (45 CFR Part 160 and Part 164 Subparts A and E).',
+    policies: ['Notice of Privacy Practices', 'Minimum Necessary', 'Patient Right of Access', 'Business Associate Agreements'] },
+  { code: 'HIPAA-SECURITY', title: 'HIPAA Security Rule', level: 'federal', authority: 'HHS OCR', types: ALL_HEALTH,
+    summary: 'Requires administrative, physical, and technical safeguards for electronic PHI (45 CFR Part 164 Subpart C).',
+    policies: ['Security Risk Analysis', 'Access Control', 'Audit Controls', 'Contingency Plan', 'Workstation Security'] },
+  { code: 'HIPAA-BREACH', title: 'HIPAA Breach Notification Rule', level: 'federal', authority: 'HHS OCR', types: ALL_HEALTH,
+    summary: 'Requires notice to individuals, HHS, and in some cases the media after a breach of unsecured PHI (45 CFR 164.400-414).',
+    policies: ['Breach Notification and Response'] },
+  { code: 'CMS-COP-HOSPITAL', title: 'CMS Conditions of Participation: Hospitals', level: 'federal', authority: 'CMS', types: ['hospital', 'teaching_hospital'],
+    summary: 'Requirements hospitals must meet to participate in Medicare and Medicaid (42 CFR Part 482).',
+    policies: ['Patient Rights', 'QAPI Program', 'Medical Staff Bylaws', 'Nursing Services', 'Medical Records', 'Infection Prevention'] },
+  { code: 'CMS-COP-HOME-HEALTH', title: 'CMS Conditions of Participation: Home Health Agencies', level: 'federal', authority: 'CMS', types: ['home_health'],
+    summary: 'Requirements for Medicare-certified home health agencies (42 CFR Part 484).',
+    policies: ['Comprehensive Assessment (OASIS)', 'Care Planning', 'Patient Rights', 'QAPI', 'Emergency Preparedness'] },
+  { code: 'CMS-LTC', title: 'CMS Requirements for Long-Term Care Facilities', level: 'federal', authority: 'CMS', types: ['long_term_care'],
+    summary: 'Requirements for skilled nursing and nursing facilities (42 CFR Part 483).',
+    policies: ['Resident Rights', 'Abuse Prohibition', 'Infection Control', 'Comprehensive Care Plans'] },
+  { code: 'CMS-EP', title: 'CMS Emergency Preparedness Rule', level: 'federal', authority: 'CMS', types: ALL_HEALTH,
+    summary: 'Requires an all-hazards emergency plan, policies, communication plan, and training and testing program.',
+    policies: ['Emergency Operations Plan', 'Communication Plan', 'Emergency Training and Exercises'] },
+  { code: 'EMTALA', title: 'Emergency Medical Treatment and Labor Act', level: 'federal', authority: 'CMS', types: ['hospital', 'teaching_hospital'], services: ['emergency'],
+    summary: 'Requires medical screening and stabilizing treatment for anyone who comes to the emergency department, regardless of ability to pay (42 CFR 489.24).',
+    policies: ['Medical Screening Examination', 'Transfer Policy', 'On-Call Coverage'] },
+  { code: 'OSHA-BBP', title: 'OSHA Bloodborne Pathogens Standard', level: 'federal', authority: 'OSHA', types: ALL_HEALTH,
+    summary: 'Requires an exposure control plan, training, vaccination, and sharps safety for workers exposed to blood (29 CFR 1910.1030).',
+    policies: ['Exposure Control Plan', 'Sharps Injury Prevention', 'Hepatitis B Vaccination'] },
+  { code: 'OSHA-HAZCOM', title: 'OSHA Hazard Communication Standard', level: 'federal', authority: 'OSHA', types: ['any'],
+    summary: 'Requires labeling, safety data sheets, and training for hazardous chemicals (29 CFR 1910.1200).',
+    policies: ['Hazard Communication Program'] },
+  { code: 'CLIA', title: 'Clinical Laboratory Improvement Amendments', level: 'federal', authority: 'CMS', types: ['hospital', 'teaching_hospital', 'clinic'], services: ['laboratory'],
+    summary: 'Quality standards for laboratory testing on human specimens (42 CFR Part 493).',
+    policies: ['Laboratory Quality Control', 'Proficiency Testing', 'Specimen Handling'] },
+  { code: 'DEA-CSA', title: 'Controlled Substances Act and DEA Regulations', level: 'federal', authority: 'DEA', types: ALL_HEALTH, services: ['pharmacy'],
+    summary: 'Registration, recordkeeping, storage, and security of controlled substances (21 CFR Parts 1300-1321).',
+    policies: ['Controlled Substance Storage and Security', 'Diversion Prevention', 'Controlled Substance Inventory'] },
+  { code: '42CFR2', title: 'Confidentiality of Substance Use Disorder Records', level: 'federal', authority: 'SAMHSA', types: ['behavioral_health', 'hospital', 'teaching_hospital'], services: ['behavioral_health', 'addiction'],
+    summary: 'Extra confidentiality protections for substance use disorder treatment records (42 CFR Part 2).',
+    policies: ['SUD Record Confidentiality', 'Consent for SUD Disclosures'] },
+  { code: 'EVV-CURES', title: '21st Century Cures Act Electronic Visit Verification', level: 'federal', authority: 'CMS', types: ['home_health'],
+    summary: 'Requires electronic verification of Medicaid personal care and home health visits (six required data elements).',
+    policies: ['Electronic Visit Verification'] },
+  { code: 'ADA-504', title: 'ADA and Section 504 Nondiscrimination', level: 'federal', authority: 'HHS OCR / DOJ', types: ['any'],
+    summary: 'Prohibits disability discrimination and requires effective communication and reasonable accommodation.',
+    policies: ['Effective Communication and Interpreters', 'Service Animals', 'Reasonable Accommodation'] },
+  { code: 'ACA-1557', title: 'ACA Section 1557', level: 'federal', authority: 'HHS OCR', types: ALL_HEALTH,
+    summary: 'Prohibits discrimination in health programs and requires language assistance services.',
+    policies: ['Nondiscrimination Notice', 'Language Access'] },
+  { code: 'FERPA', title: 'Family Educational Rights and Privacy Act', level: 'federal', authority: 'U.S. Department of Education', types: ['university'],
+    summary: 'Protects the privacy of student education records (34 CFR Part 99).',
+    policies: ['Student Records Privacy', 'Directory Information'] },
+  { code: 'TJC-IC', title: 'Joint Commission: Infection Prevention and Control', level: 'accreditation', authority: 'The Joint Commission', types: ['hospital', 'teaching_hospital'],
+    summary: 'Infection prevention program, surveillance, hand hygiene, and outbreak response standards.',
+    policies: ['Infection Prevention Plan', 'Hand Hygiene', 'Outbreak Management'] },
+  { code: 'TJC-NPSG', title: 'Joint Commission: National Patient Safety Goals', level: 'accreditation', authority: 'The Joint Commission', types: ['hospital', 'teaching_hospital'],
+    summary: 'Patient identification, communication of critical results, medication safety, alarm safety, suicide risk, and universal protocol.',
+    policies: ['Two Patient Identifiers', 'Critical Results Reporting', 'Medication Labeling', 'Suicide Risk Screening', 'Universal Protocol'] },
+  { code: 'TJC-MM', title: 'Joint Commission: Medication Management', level: 'accreditation', authority: 'The Joint Commission', types: ['hospital', 'teaching_hospital'],
+    summary: 'Selection, storage, ordering, dispensing, administration, and monitoring of medications.',
+    policies: ['Medication Storage', 'High-Alert Medications', 'Medication Reconciliation'] },
+  { code: 'TJC-EC', title: 'Joint Commission: Environment of Care and Life Safety', level: 'accreditation', authority: 'The Joint Commission', types: ['hospital', 'teaching_hospital'],
+    summary: 'Safety, security, hazardous materials, fire safety, medical equipment, and utilities management.',
+    policies: ['Fire Safety Plan', 'Security Management', 'Medical Equipment Management', 'Utilities Management'] },
+  { code: 'ACGME-INST', title: 'ACGME Institutional Requirements', level: 'accreditation', authority: 'ACGME', types: ['teaching_hospital'],
+    summary: 'Requirements for sponsoring institutions of graduate medical education, including resident supervision and duty hours.',
+    policies: ['Resident Supervision', 'Clinical and Educational Work Hours', 'GME Committee'] }
+];
+
+export const ORG_TYPES = [
+  { id: 'teaching_hospital', label: 'Teaching hospital' },
+  { id: 'hospital', label: 'Hospital' },
+  { id: 'clinic', label: 'Clinic or physician practice' },
+  { id: 'behavioral_health', label: 'Behavioral health' },
+  { id: 'home_health', label: 'Home health / home care' },
+  { id: 'long_term_care', label: 'Long-term care / skilled nursing' },
+  { id: 'university', label: 'University' },
+  { id: 'government', label: 'Government agency' }
+];
+
+export const SERVICES = ['emergency', 'surgery', 'laboratory', 'pharmacy', 'imaging', 'behavioral_health', 'addiction', 'obstetrics', 'pediatrics', 'icu', 'dialysis', 'rehabilitation'];
+
+export const STATES = 'AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY'.split(' ');

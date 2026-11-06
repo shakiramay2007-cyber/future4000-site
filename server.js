@@ -2,7 +2,12 @@ import express from 'express';
 import Stripe from 'stripe';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AGENTS, runAgent, aiConfigured } from './src/agents.js';
+import { AGENTS, runAgent } from './src/agents.js';
+import { aiConfigured, aiStatus } from './src/ai.js';
+import { migrate, dbConfigured } from './src/db.js';
+import { loadUser } from './src/auth.js';
+import { router, handleStripeEvent } from './src/routes.js';
+import { storageProvider } from './src/cloud.js';
 import { listIntegrations, testIntegration } from './src/integrations.js';
 import { PLANS } from './src/plans.js';
 
@@ -19,30 +24,36 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req,
   } catch (err) {
     return res.status(400).send(`Webhook signature check failed: ${err.message}`);
   }
-  switch (event.type) {
-    case 'payment_intent.succeeded':
-      // TODO: activate the organization's plan in the database.
-      console.log('Payment succeeded:', event.data.object.id, event.data.object.metadata);
-      break;
-    case 'payment_intent.payment_failed':
-      console.log('Payment failed:', event.data.object.id);
-      break;
-    default:
-      console.log('Stripe event:', event.type);
-  }
-  res.json({ received: true });
+  handleStripeEvent(event)
+    .then(() => res.json({ received: true }))
+    .catch((e) => { console.error('Stripe event handling failed:', e.message); res.status(500).send('Handler error'); });
 });
 
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
 app.use(express.json({ limit: '1mb' }));
+app.use(loadUser);
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
 app.get('/api/status', (_req, res) => res.json({
   ai: aiConfigured(),
+  aiProviders: aiStatus(),
+  database: dbConfigured(),
+  storage: storageProvider(),
   stripe: Boolean(stripe && process.env.STRIPE_PUBLISHABLE_KEY),
   stripeMode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live') ? 'live' : (process.env.STRIPE_SECRET_KEY ? 'test' : 'off')
 }));
+
+app.use('/api', router);
 
 // Agents
 app.get('/api/agents', (_req, res) => res.json(AGENTS.map(({ prompt, ...a }) => a)));
@@ -96,4 +107,6 @@ app.post('/api/stripe/payment-intent', async (req, res) => {
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`FUTURE4000 platform running on port ${port}`));
+migrate()
+  .catch((e) => console.error('Database setup failed:', e.message))
+  .finally(() => app.listen(port, () => console.log(`FUTURE4000 platform running on port ${port}`)));

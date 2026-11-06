@@ -1,6 +1,5 @@
 // FUTURE4000 AI agents, powered by Claude on AWS Bedrock.
-import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
-import { scrubPHI } from './phi.js';
+import { complete } from './ai.js';
 
 const COMMON_RULES = `You are part of FUTURE4000, an AI-powered healthcare compliance operating system built by LaFortune Business Management.
 Rules:
@@ -76,46 +75,13 @@ export const AGENTS = [
   }
 ];
 
-const MODEL_IDS = {
-  heavy: process.env.BEDROCK_MODEL_HEAVY || 'anthropic.claude-opus-5-5',
-  standard: process.env.BEDROCK_MODEL_STANDARD || 'anthropic.claude-sonnet-5-5',
-  fast: process.env.BEDROCK_MODEL_FAST || 'anthropic.claude-haiku-5-5'
-};
+export { aiConfigured } from './ai.js';
 
-let client;
-function bedrock() {
-  if (!client) client = new BedrockRuntimeClient({ region: process.env.AWS_REGION || 'us-east-1' });
-  return client;
-}
-
-export function aiConfigured() {
-  return Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
-}
-
-export async function runAgent(agentId, userInput) {
+export async function runAgent(agentId, userInput, opts = {}) {
   const agent = AGENTS.find((a) => a.id === agentId);
   if (!agent) throw Object.assign(new Error('Unknown agent'), { status: 404 });
   if (!userInput || !String(userInput).trim()) throw Object.assign(new Error('Please enter a request.'), { status: 400 });
-
-  const guard = scrubPHI(userInput);
-  if (!aiConfigured()) {
-    throw Object.assign(new Error('AI is not connected yet. Add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in Render environment settings.'), { status: 503, phi: guard });
-  }
-
-  const modelId = MODEL_IDS[agent.model];
-  const response = await bedrock().send(new ConverseCommand({
-    modelId,
-    system: [{ text: `${COMMON_RULES}\n\nYour role: ${agent.name}.\n${agent.prompt}` }],
-    messages: [{ role: 'user', content: [{ text: guard.clean }] }],
-    inferenceConfig: { maxTokens: 4000 }
-  }));
-
-  const text = (response.output?.message?.content || []).map((c) => c.text || '').join('');
-  return {
-    agent: agent.name,
-    model: modelId,
-    output: text,
-    phi: { redactions: guard.redactions, types: guard.findings },
-    usage: response.usage
-  };
+  const context = opts.orgContext ? `\n\nOrganization context: ${opts.orgContext}` : '';
+  const r = await complete(agent.model, `${COMMON_RULES}\n\nYour role: ${agent.name}.\n${agent.prompt}${context}`, userInput, { preferred: opts.provider });
+  return { agent: agent.name, agentId: agent.id, model: r.model, provider: r.provider, output: r.text, phi: r.phi, failovers: r.failovers, usage: r.usage };
 }
