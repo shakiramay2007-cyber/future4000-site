@@ -16,16 +16,15 @@ AI-powered healthcare compliance operating system by LaFortune Business Manageme
 | **Audit log** | Every sign-in, failed sign-in, policy action, AI run, scan, and billing event. CSV export for surveyors. |
 | **F4 Pay** | Monthly subscriptions through embedded Stripe Checkout, plan activation by signed webhook, Stripe billing portal. |
 
-## Deploy on Render (one click)
+## Deploy on AWS
 
-This repo includes `render.yaml`, which creates the web app, the Postgres database, and the 8:30 AM daily scan together.
+`infra/aws.yaml` creates the full HIPAA-eligible stack: ECS Fargate app, encrypted RDS PostgreSQL, private encrypted S3 document archive, ECR, CodeBuild, Secrets Manager, CloudWatch Logs, and the 8:30 AM Eastern daily scan (EventBridge Scheduler, daylight saving handled).
 
-1. Render Dashboard > **New > Blueprint** > connect this repo.
-2. Fill in the secret values Render asks for (AWS and Stripe keys at minimum).
-3. In Stripe > Developers > Webhooks, add `https://YOUR-APP.onrender.com/api/stripe/webhook` with events `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`. Put the signing secret in `STRIPE_WEBHOOK_SECRET`.
-4. Open the app, create your organization account, and complete setup.
-
-Note: the cron runs at 13:30 UTC, which is 8:30 AM Eastern Standard Time. During daylight saving time change the schedule to `30 12 * * *`.
+1. Sign the AWS BAA in AWS Artifact and enable Claude in Amazon Bedrock (Model catalog, submit use case details).
+2. Create the stack from `infra/aws.yaml` with your VPC and two subnets (DesiredCount 0).
+3. Run the `future4000-build` CodeBuild project, then update the stack with DesiredCount 1.
+4. Add Stripe and Slack values to the `future4000/app` secret in Secrets Manager.
+5. In Stripe, add the webhook `https://YOUR-DOMAIN/api/stripe/webhook` for `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`.
 
 ## Run locally
 

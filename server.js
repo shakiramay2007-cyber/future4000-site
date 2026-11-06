@@ -81,7 +81,7 @@ app.get('/api/stripe/config', (_req, res) => {
   res.json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY });
 });
 app.post('/api/stripe/payment-intent', async (req, res) => {
-  if (!stripe) return res.status(503).json({ error: 'Stripe is not connected yet. Add STRIPE_SECRET_KEY in Render.' });
+  if (!stripe) return res.status(503).json({ error: 'Stripe is not connected yet. Add STRIPE_SECRET_KEY to your environment.' });
   const plan = PLANS[req.body?.plan];
   if (!plan) return res.status(400).json({ error: 'Choose a valid plan.' });
   const organization = String(req.body?.organization || '').slice(0, 120);

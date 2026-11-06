@@ -6,7 +6,7 @@ import { GOV_SCHEMA } from './governance.js';
 
 const { Pool } = pg;
 
-// Connects with DATABASE_URL (Render, Supabase, local) or PGHOST/PGUSER/PGPASSWORD/PGDATABASE (AWS RDS via Secrets Manager).
+// Connects with DATABASE_URL (Supabase or local) or PGHOST/PGUSER/PGPASSWORD/PGDATABASE (AWS RDS via Secrets Manager).
 const local = (process.env.DATABASE_URL || process.env.PGHOST || '').includes('localhost');
 const ssl = process.env.DATABASE_SSL === 'false' || local ? false : { rejectUnauthorized: false };
 export const pool = process.env.DATABASE_URL
