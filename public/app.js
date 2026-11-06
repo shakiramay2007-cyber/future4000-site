@@ -243,8 +243,15 @@ async function loadTemplates() {
     $$('button', card).forEach((x) => (x.disabled = true));
     show($('#template-msg'), b.dataset.ai === '1' ? 'Drafting each policy with F4 Intelligence. Larger packs can take several minutes...' : 'Creating draft policies...');
     try {
-      const r = await api(`/api/templates/${card.dataset.id}/apply`, { method: 'POST', body: { ai: b.dataset.ai === '1' } });
-      show($('#template-msg'), r.created.length ? `Created ${r.created.length} draft policies: ${r.created.map((c) => c.title).join(', ')}. Open the Policies tab to review them.` : 'All policies in this pack are already in your library.', 'ok');
+      const { job } = await api(`/api/templates/${card.dataset.id}/apply`, { method: 'POST', body: { ai: b.dataset.ai === '1' } });
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const j = await api(`/api/jobs/${job}`);
+        if (j.status === 'running' || j.status === 'queued') { show($('#template-msg'), `Working: ${j.done_steps} of ${j.total_steps || '?'} policies done. You can leave this page; the job keeps running and resumes after any restart.`); continue; }
+        if (j.status === 'succeeded') show($('#template-msg'), j.result.created.length ? `Created ${j.result.created.length} draft policies: ${j.result.created.map((c) => c.title).join(', ')}. Open the Policies tab to review them.` : 'All policies in this pack are already in your library.', 'ok');
+        else show($('#template-msg'), `Job ${j.status}: ${j.error || ''}`, 'bad');
+        break;
+      }
       loadTemplates(); loadPolicies();
     } catch (e) { show($('#template-msg'), e.message, 'bad'); }
     $$('button', card).forEach((x) => (x.disabled = false));

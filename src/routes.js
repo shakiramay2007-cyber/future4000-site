@@ -11,6 +11,7 @@ import { PLANS } from './plans.js';
 import { runDailyScan, SCAN_SCHEMA } from './scan.js';
 import { PACKS, skeleton } from './templates.js';
 import { aiPaused } from './governance.js';
+import { registerJob, enqueue, getJob, cancelJob } from './jobs.js';
 
 export const router = express.Router();
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
@@ -308,36 +309,57 @@ router.get('/templates', requireUser, wrap(async (req, res) => {
   }));
 }));
 
+// Durable job: each policy in the pack is one recorded step, so an interrupted pack resumes where it stopped.
+registerJob('template.apply', async (ctx, { packId, useAI, orgId, userId }) => {
+  const pack = PACKS.find((p) => p.id === packId);
+  const org = (await q('SELECT * FROM organizations WHERE id=$1', [orgId])).rows[0];
+  const regs = (await q('SELECT * FROM regulations WHERE code = ANY($1)', [pack.regs])).rows;
+  const work = regs.flatMap((reg) => reg.required_policies.map((title) => ({ reg, title })));
+  await ctx.setTotal(work.length);
+  const created = [];
+  for (const { reg, title } of work) {
+    const out = await ctx.step(`policy:${title}`, async () => {
+      const exists = (await q('SELECT id FROM policies WHERE org_id=$1 AND lower(title)=lower($2)', [orgId, title])).rows[0];
+      if (exists) return { skipped: true, title };
+      if (useAI && await aiPaused(orgId)) throw Object.assign(new Error('AI was paused while this job was running.'), { noRetry: true });
+      let body = skeleton(title, reg, org.name), source = 'manual', model = null;
+      if (useAI) {
+        const r = await runAgent('policy-writer', `${title} (to meet ${reg.title})`, { orgContext: `${org.name}; type ${org.org_type}; state ${org.state}; services ${(org.services || []).join(', ')}; accreditor ${org.accreditor || 'not set'}` });
+        body = r.output; source = 'ai'; model = r.model;
+      }
+      const count = (await q('SELECT count(*)::int AS n FROM policies WHERE org_id=$1', [orgId])).rows[0].n;
+      const p = (await q('INSERT INTO policies (org_id, title, domain, policy_number, owner_id) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+        [orgId, title, pack.domain, `${pack.domain.slice(0, 3).toUpperCase()}-${String(count + 1).padStart(4, '0')}`, userId])).rows[0];
+      await addVersion(p.id, body, source, model, userId);
+      await q('INSERT INTO policy_regulations (policy_id, regulation_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [p.id, reg.id]);
+      return { id: p.id, title, source };
+    });
+    if (!out.skipped) created.push(out);
+  }
+  await q('INSERT INTO audit_log (org_id, user_id, action, entity, entity_id, detail) VALUES ($1,$2,$3,$4,$5,$6)',
+    [orgId, userId, 'template.applied', 'template', packId, { created: created.length, ai: useAI, job: ctx.job.id }]);
+  return { created };
+});
+
 router.post('/templates/:id/apply', requireRole(...EDITORS), wrap(async (req, res) => {
   const pack = PACKS.find((p) => p.id === req.params.id);
   if (!pack) throw bad('Template not found.', 404);
   const useAI = Boolean(req.body?.ai);
   if (useAI) { const paused = await aiPaused(req.user.org_id); if (paused) throw bad(paused, 423); }
-  const org = (await q('SELECT * FROM organizations WHERE id=$1', [req.user.org_id])).rows[0];
-  const regs = (await q('SELECT * FROM regulations WHERE code = ANY($1)', [pack.regs])).rows;
-  const existing = new Set((await q('SELECT lower(title) AS t FROM policies WHERE org_id=$1', [req.user.org_id])).rows.map((r) => r.t));
-  const created = [];
-  for (const reg of regs) {
-    for (const title of reg.required_policies) {
-      if (existing.has(title.toLowerCase())) continue;
-      let body = skeleton(title, reg, org.name), source = 'manual', model = null;
-      if (useAI) {
-        try {
-          const r = await runAgent('policy-writer', `${title} (to meet ${reg.title})`, { orgContext: `${org.name}; type ${org.org_type}; state ${org.state}; services ${(org.services || []).join(', ')}; accreditor ${org.accreditor || 'not set'}` });
-          body = r.output; source = 'ai'; model = r.model;
-        } catch (e) { console.error('Template AI draft failed, using skeleton:', e.message); }
-      }
-      const count = (await q('SELECT count(*)::int AS n FROM policies WHERE org_id=$1', [org.id])).rows[0].n;
-      const p = (await q('INSERT INTO policies (org_id, title, domain, policy_number, owner_id) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-        [org.id, title, pack.domain, `${pack.domain.slice(0, 3).toUpperCase()}-${String(count + 1).padStart(4, '0')}`, req.user.id])).rows[0];
-      await addVersion(p.id, body, source, model, req.user.id);
-      await q('INSERT INTO policy_regulations (policy_id, regulation_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [p.id, reg.id]);
-      existing.add(title.toLowerCase());
-      created.push({ id: p.id, title });
-    }
-  }
-  await audit(req, 'template.applied', 'template', pack.id, { created: created.length, ai: useAI });
-  res.json({ created });
+  const jobId = await enqueue('template.apply', { orgId: req.user.org_id, userId: req.user.id, input: { packId: pack.id, useAI, orgId: req.user.org_id, userId: req.user.id } });
+  await audit(req, 'job.started', 'job', jobId, { type: 'template.apply', pack: pack.id, ai: useAI });
+  res.status(202).json({ job: jobId });
+}));
+
+router.get('/jobs/:id', requireUser, wrap(async (req, res) => {
+  const j = await getJob(req.params.id, req.user.org_id);
+  if (!j) throw bad('Job not found.', 404);
+  res.json(j);
+}));
+router.post('/jobs/:id/cancel', requireRole(...EDITORS), wrap(async (req, res) => {
+  if (!await cancelJob(req.params.id, req.user.org_id)) throw bad('Job is not running.', 409);
+  await audit(req, 'job.canceled', 'job', req.params.id);
+  res.json({ ok: true });
 }));
 
 // ---------- Daily scan ----------

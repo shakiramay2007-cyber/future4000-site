@@ -10,6 +10,7 @@ import { router, handleStripeEvent } from './src/routes.js';
 import { storageProvider } from './src/cloud.js';
 import { learnRouter } from './src/learn.js';
 import { govRouter } from './src/governance.js';
+import { resumeJobs } from './src/jobs.js';
 import { listIntegrations, testIntegration } from './src/integrations.js';
 import { PLANS } from './src/plans.js';
 
@@ -107,5 +108,6 @@ app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.h
 
 const port = process.env.PORT || 3000;
 migrate()
+  .then(() => dbConfigured() && resumeJobs())
   .catch((e) => console.error('Database setup failed:', e.message))
   .finally(() => app.listen(port, () => console.log(`FUTURE4000 platform running on port ${port}`)));
