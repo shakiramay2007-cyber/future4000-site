@@ -37,6 +37,7 @@
     <nav class="tabs">
       <button class="tab active" data-view="dashboard">Dashboard</button>
       <button class="tab" data-view="policies">Policies</button>
+      <button class="tab" data-view="templates">F4 Templates</button>
       <button class="tab" data-view="agents">AI Agents</button>
       <button class="tab" data-view="integrations">F4 Connect</button>
       <button class="tab admin-only" data-view="team">Team</button>
@@ -97,6 +98,14 @@
           <div id="policy-list" class="policy-list"></div>
           <div id="policy-detail" class="panel hidden"></div>
         </div>
+      </section>
+
+      <!-- Templates -->
+      <section id="templates" class="view">
+        <h1>F4 Templates</h1>
+        <p class="lead">One-click compliance packs. Each pack creates every required policy as a linked draft, ready for clinician review. Policies you already have are skipped.</p>
+        <div id="template-msg" class="notice hidden"></div>
+        <div id="template-grid" class="grid"></div>
       </section>
 
       <!-- Agents -->

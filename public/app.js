@@ -59,7 +59,7 @@ function startApp() {
   $$('.admin-strict').forEach((el) => el.classList.toggle('hidden', !isAdmin()));
   $$('.editor-only').forEach((el) => el.classList.toggle('hidden', !isEditor()));
   if (!isAdmin()) $('[data-view="billing"]').classList.add('hidden');
-  loadDashboard(); loadPolicies(); loadAgents(); loadIntegrations();
+  loadDashboard(); loadPolicies(); loadTemplates(); loadAgents(); loadIntegrations();
   if (isEditor()) { loadTeam(); loadAudit(); }
   if (isAdmin()) loadBilling();
   if (new URLSearchParams(location.search).get('billing') === 'done') {
@@ -211,6 +211,30 @@ async function openPolicy(id) {
       }
       await loadPolicies(); openPolicy(id);
     } catch (err) { show(msg, err.message, 'bad'); }
+  }));
+}
+
+// ---------- Templates ----------
+async function loadTemplates() {
+  const packs = await api('/api/templates');
+  $('#template-grid').innerHTML = packs.map((p) => `
+    <div class="card" data-id="${p.id}">
+      <h3>${esc(p.name)}</h3><p class="small"><b>For:</b> ${esc(p.for)}</p>
+      <div class="tags">${p.regs.map((r) => `<span class="tag">${esc(r)}</span>`).join('')}</div>
+      <p>${p.policies.length} policies: ${p.policies.map(esc).join(', ')}</p>
+      <p class="small ${p.alreadyCreated === p.policies.length ? 'good' : 'muted'}">${p.alreadyCreated} of ${p.policies.length} already in your library</p>
+      ${isEditor() ? `<div class="btn-row"><button data-ai="0">Add as templates</button><button data-ai="1">Add and draft with AI</button></div>` : ''}
+    </div>`).join('');
+  $$('#template-grid .card button').forEach((b) => b.addEventListener('click', async () => {
+    const card = b.closest('.card');
+    $$('button', card).forEach((x) => (x.disabled = true));
+    show($('#template-msg'), b.dataset.ai === '1' ? 'Drafting each policy with F4 Intelligence. Larger packs can take several minutes...' : 'Creating draft policies...');
+    try {
+      const r = await api(`/api/templates/${card.dataset.id}/apply`, { method: 'POST', body: { ai: b.dataset.ai === '1' } });
+      show($('#template-msg'), r.created.length ? `Created ${r.created.length} draft policies: ${r.created.map((c) => c.title).join(', ')}. Open the Policies tab to review them.` : 'All policies in this pack are already in your library.', 'ok');
+      loadTemplates(); loadPolicies();
+    } catch (e) { show($('#template-msg'), e.message, 'bad'); }
+    $$('button', card).forEach((x) => (x.disabled = false));
   }));
 }
 

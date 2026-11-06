@@ -9,6 +9,7 @@ import { archiveDocument, storageProvider } from './cloud.js';
 import { scrubPHI } from './phi.js';
 import { PLANS } from './plans.js';
 import { runDailyScan, SCAN_SCHEMA } from './scan.js';
+import { PACKS, skeleton } from './templates.js';
 
 export const router = express.Router();
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
@@ -274,6 +275,47 @@ router.post('/org/agents/:id/run', requireUser, wrap(async (req, res) => {
   });
   await audit(req, 'ai.agent_run', 'agent', req.params.id, { model: r.model, provider: r.provider, phi_redactions: r.phi.redactions, failovers: r.failovers.length });
   res.json(r);
+}));
+
+// ---------- F4 Templates (one-click compliance packs) ----------
+router.get('/templates', requireUser, wrap(async (req, res) => {
+  const regs = (await q('SELECT code, title, required_policies FROM regulations')).rows;
+  const existing = new Set((await q('SELECT lower(title) AS t FROM policies WHERE org_id=$1', [req.user.org_id])).rows.map((r) => r.t));
+  res.json(PACKS.map((p) => {
+    const policies = regs.filter((r) => p.regs.includes(r.code)).flatMap((r) => r.required_policies);
+    return { ...p, policies, alreadyCreated: policies.filter((t) => existing.has(t.toLowerCase())).length };
+  }));
+}));
+
+router.post('/templates/:id/apply', requireRole(...EDITORS), wrap(async (req, res) => {
+  const pack = PACKS.find((p) => p.id === req.params.id);
+  if (!pack) throw bad('Template not found.', 404);
+  const useAI = Boolean(req.body?.ai);
+  const org = (await q('SELECT * FROM organizations WHERE id=$1', [req.user.org_id])).rows[0];
+  const regs = (await q('SELECT * FROM regulations WHERE code = ANY($1)', [pack.regs])).rows;
+  const existing = new Set((await q('SELECT lower(title) AS t FROM policies WHERE org_id=$1', [req.user.org_id])).rows.map((r) => r.t));
+  const created = [];
+  for (const reg of regs) {
+    for (const title of reg.required_policies) {
+      if (existing.has(title.toLowerCase())) continue;
+      let body = skeleton(title, reg, org.name), source = 'manual', model = null;
+      if (useAI) {
+        try {
+          const r = await runAgent('policy-writer', `${title} (to meet ${reg.title})`, { orgContext: `${org.name}; type ${org.org_type}; state ${org.state}; services ${(org.services || []).join(', ')}; accreditor ${org.accreditor || 'not set'}` });
+          body = r.output; source = 'ai'; model = r.model;
+        } catch (e) { console.error('Template AI draft failed, using skeleton:', e.message); }
+      }
+      const count = (await q('SELECT count(*)::int AS n FROM policies WHERE org_id=$1', [org.id])).rows[0].n;
+      const p = (await q('INSERT INTO policies (org_id, title, domain, policy_number, owner_id) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+        [org.id, title, pack.domain, `${pack.domain.slice(0, 3).toUpperCase()}-${String(count + 1).padStart(4, '0')}`, req.user.id])).rows[0];
+      await addVersion(p.id, body, source, model, req.user.id);
+      await q('INSERT INTO policy_regulations (policy_id, regulation_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [p.id, reg.id]);
+      existing.add(title.toLowerCase());
+      created.push({ id: p.id, title });
+    }
+  }
+  await audit(req, 'template.applied', 'template', pack.id, { created: created.length, ai: useAI });
+  res.json({ created });
 }));
 
 // ---------- Daily scan ----------
