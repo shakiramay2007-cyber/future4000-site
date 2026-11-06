@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FUTURE4000 Platform</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">F4</span> FUTURE4000 <small>Compliance Operating System</small></div>
+    <div id="status" class="status"></div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-view="agents">AI Agents</button>
+    <button class="tab" data-view="integrations">Integrations</button>
+    <button class="tab" data-view="billing">Plans &amp; Payment</button>
+  </nav>
+
+  <main>
+    <section id="agents" class="view active">
+      <h1>AI Agents</h1>
+      <p class="lead">Powered by Claude on AWS Bedrock. Patient identifiers are masked automatically before anything is sent to the AI.</p>
+      <div class="agent-layout">
+        <div id="agent-list" class="agent-list"></div>
+        <div class="agent-work">
+          <h2 id="agent-title">Choose an agent</h2>
+          <p id="agent-summary" class="muted"></p>
+          <textarea id="agent-input" rows="7" placeholder="Example: Hand hygiene policy for a 400-bed teaching hospital in Georgia, Joint Commission accredited."></textarea>
+          <button id="agent-run" class="primary" disabled>Run agent</button>
+          <div id="agent-phi" class="notice hidden"></div>
+          <pre id="agent-output" class="output hidden"></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="integrations" class="view">
+      <h1>Integrations Marketplace</h1>
+      <p class="lead">Each connector shows <b>Connected</b> only after its credentials are saved and a live test passes.</p>
+      <div class="filters">
+        <button class="chip active" data-cat="all">All</button>
+        <button class="chip" data-cat="Healthcare">Healthcare</button>
+        <button class="chip" data-cat="Business">Business</button>
+      </div>
+      <div id="integration-grid" class="grid"></div>
+    </section>
+
+    <section id="billing" class="view">
+      <h1>Plans &amp; Payment</h1>
+      <p class="lead">Billing is for organizations only. Never enter patient information here.</p>
+      <div id="plan-grid" class="grid plans"></div>
+      <form id="pay-form" class="pay hidden">
+        <h2 id="pay-title"></h2>
+        <label>Organization name <input id="org" required maxlength="120" /></label>
+        <label>Billing email <input id="email" type="email" required /></label>
+        <button type="button" id="pay-start" class="primary">Continue to payment</button>
+        <div id="payment-element"></div>
+        <button type="submit" id="pay-submit" class="primary hidden">Pay now</button>
+        <div id="pay-message" class="notice hidden"></div>
+      </form>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
