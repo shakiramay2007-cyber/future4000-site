@@ -22,7 +22,7 @@
   <header class="home-nav">
     <div class="brand"><span class="logo">F4</span> FUTURE4000</div>
     <nav>
-      <a href="#platform">Platform</a><a href="#connect">Integrations</a><a href="#compare">Why FUTURE4000</a><a href="#pricing">Pricing</a>
+      <a href="#platform">Platform</a><a href="#how">How it works</a><a href="#ai">AI</a><a href="#connect">Integrations</a><a href="#security">Security</a><a href="#compare">Why FUTURE4000</a><a href="#pricing">Pricing</a>
       <a class="nav-cta" href="/app">Sign in</a>
     </nav>
   </header>
@@ -49,7 +49,7 @@
   </section>
 
   <section class="strip">
-    <div><b>8 AI agents</b><span>Claude on AWS Bedrock with automatic failover</span></div>
+    <div><b>16 AI agents</b><span>Claude on AWS Bedrock with automatic failover</span></div>
     <div><b>23 connectors</b><span>EHR, claims, EVV, cloud, business</span></div>
     <div><b>15 compliance packs</b><span>One click to a full policy set</span></div>
     <div><b>Every day 8:30 AM</b><span>Regulatory scan, automatic</span></div>
@@ -65,6 +65,51 @@
       <article><span class="icon">✓</span><h3>LearnTrack training</h3><p>Every approved policy becomes a course with objectives, a clinical scenario, a 10-question quiz and a certificate. Passing records the staff sign-off automatically.</p></article>
       <article><span class="icon">◷</span><h3>F4 Daily Scan</h3><p>Every morning at 8:30 AM Eastern: new federal rules and notices, policies due for review, stalled reviews, missing sign-offs and integration health, posted to Slack.</p></article>
       <article><span class="icon">⛨</span><h3>Audit-ready, always</h3><p>Every sign-in, approval, AI run, scan and payment is logged with user, time and detail, and exports to a spreadsheet for surveyors in one click.</p></article>
+    </div>
+  </section>
+
+
+  <section id="how" class="section alt">
+    <h2>From sign-up to survey-ready in four steps</h2>
+    <p class="section-sub">No consultants, no binders, no six-month implementation.</p>
+    <div class="steps">
+      <div><span>1</span><h3>Tell us who you are</h3><p>Organization type, state, services, beds and accreditor. FUTURE4000 maps every requirement that applies in seconds.</p></div>
+      <div><span>2</span><h3>Fill the gaps</h3><p>Apply compliance packs or upload the policies you already have. Policy Gap Review shows exactly what is missing or outdated.</p></div>
+      <div><span>3</span><h3>Approve and train</h3><p>Clinicians approve each policy. LearnTrack turns it into a course, a quiz and a certificate, and records every sign-off.</p></div>
+      <div><span>4</span><h3>Stay ahead every day</h3><p>The 8:30 AM scan catches new federal rules, overdue reviews and missing sign-offs before a surveyor does.</p></div>
+    </div>
+  </section>
+
+  <section id="ai" class="section">
+    <h2>16 AI agents that work the way compliance teams work</h2>
+    <p class="section-sub">Claude on AWS Bedrock, with backup providers, patient-identifier masking, and clinician approval before anything becomes official.</p>
+    <div class="agent-cols">
+      <div><h3>Write and map</h3><ul><li>DocuTrack Policy Writer</li><li>Regulation Mapper</li><li>Survey and Audit Prep</li><li>HR Credentialing</li></ul></div>
+      <div><h3>Read your documents</h3><ul><li>Policy Gap Review</li><li>Executive Summary with page references</li><li>Key Information Extractor</li><li>Compare Two Documents</li></ul></div>
+      <div><h3>Evidence and contracts</h3><ul><li>Research Evidence Appraisal</li><li>Contract and BAA Review</li><li>Committee Minutes to Action Items</li><li>Study Guide and Quiz</li></ul></div>
+      <div><h3>Revenue and operations</h3><ul><li>Claim Denial Explainer</li><li>EVV Compliance Checker</li><li>HL7 / FHIR Interface Analyst</li><li>LearnTrack Training Builder</li></ul></div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <h2>Built for every regulated organization</h2>
+    <div class="audience">
+      <div><b>Teaching hospitals</b><span>Joint Commission, CMS CoPs, EMTALA, ACGME</span></div>
+      <div><b>Hospitals and health systems</b><span>Multi-site policy libraries and audits</span></div>
+      <div><b>Clinics and practices</b><span>HIPAA, OSHA, CLIA, DEA</span></div>
+      <div><b>Behavioral health</b><span>42 CFR Part 2 confidentiality</span></div>
+      <div><b>Home health and home care</b><span>CMS home health CoPs, 50-state EVV</span></div>
+      <div><b>Long-term care</b><span>CMS Part 483 requirements</span></div>
+      <div><b>Universities</b><span>FERPA, student health, research</span></div>
+      <div><b>Government agencies</b><span>Policy control and audit trails</span></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Training and media, built in</h2>
+    <div class="split-2">
+      <div class="panel"><h3>LearnTrack</h3><p>Every approved policy becomes a course with objectives, a clinical scenario and a 10-question quiz. Staff who pass at 80% get a printable certificate, and the sign-off is recorded on the policy automatically. Leaders see completion and overdue staff at a glance.</p></div>
+      <div class="panel"><h3>F4 Studio</h3><p>Build precise editing prompts for AI video editors to turn raw recordings into polished training videos: captions in your brand colors, vertical clips, chapters, and an end card pointing to the LearnTrack quiz. Every prompt includes rules to remove anything that shows a patient.</p></div>
     </div>
   </section>
 
@@ -102,7 +147,28 @@
     </table>
   </section>
 
-  <section id="pricing" class="section alt">
+
+  <section id="security" class="section">
+    <h2>Security and privacy by design</h2>
+    <div class="feature-grid">
+      <article><span class="icon">⛨</span><h3>HIPAA-eligible AWS services</h3><p>Runs on AWS ECS Fargate, encrypted RDS PostgreSQL and private, encrypted S3 storage, covered by the AWS Business Associate Addendum once it is signed.</p></article>
+      <article><span class="icon">⊘</span><h3>Patient data stays out of AI</h3><p>Social Security numbers, record numbers, dates of birth, phone numbers and emails are masked before any AI call. Optional AWS Guardrails add a second screen.</p></article>
+      <article><span class="icon">⚿</span><h3>Least-privilege access</h3><p>Four roles, strong passwords, rate-limited sign-in, signed sessions, and no shared keys: on AWS the app uses its own scoped permissions.</p></article>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <h2>Frequently asked questions</h2>
+    <div class="faq">
+      <details><summary>Does FUTURE4000 replace our EHR?</summary><p>No. It works alongside Epic, Oracle Health, athenahealth and others, and fixes the compliance, policy and training gaps around them.</p></details>
+      <details><summary>Can AI-written policies go straight into use?</summary><p>No. Every AI draft is a draft until a qualified clinician approves it, and authors cannot approve their own work. Every step is audit-logged.</p></details>
+      <details><summary>Do you cover state regulations?</summary><p>Federal and accreditation requirements are mapped automatically. State rules vary widely, so the Regulation Mapper drafts them for your compliance officer to confirm.</p></details>
+      <details><summary>Can we bring the policies we already have?</summary><p>Yes. Upload them and Policy Gap Review compares each one against your mapped requirements and lists the fixes.</p></details>
+      <details><summary>How do surveyors see our evidence?</summary><p>Export the audit log, policy versions with approvals, and training completion reports in one click.</p></details>
+    </div>
+  </section>
+
+  <section id="pricing" class="section">
     <h2>Simple monthly plans</h2>
     <div id="home-plans" class="grid plans"></div>
     <p class="section-sub small">Billing is for organizations only. Patient information is never stored in billing systems.</p>

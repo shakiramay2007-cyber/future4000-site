@@ -319,6 +319,8 @@ async function loadAgents() {
     $('#agent-summary').textContent = currentAgent.summary;
     $('#agent-run').disabled = false;
     $('#agent-file-wrap').classList.toggle('hidden', !currentAgent.acceptsDocument);
+    $('#agent-file').multiple = (currentAgent.maxDocuments || 1) > 1; $('#agent-file').value = '';
+    $('#agent-file-label').textContent = (currentAgent.maxDocuments || 1) > 1 ? `Documents (choose ${currentAgent.maxDocuments})` : 'Document';
   }));
 }
 $('#agent-run').addEventListener('click', async () => {
@@ -326,8 +328,10 @@ $('#agent-run').addEventListener('click', async () => {
   btn.disabled = true; btn.textContent = 'Working...'; out.classList.add('hidden'); phi.classList.add('hidden'); $('#agent-model').textContent = '';
   try {
     const body = { input: $('#agent-input').value };
-    const f = currentAgent.acceptsDocument && $('#agent-file').files[0];
-    if (f) body.document = { name: f.name, type: f.type, data: await new Promise((ok, no) => { const rd = new FileReader(); rd.onload = () => ok(String(rd.result).split(',')[1]); rd.onerror = no; rd.readAsDataURL(f); }) };
+    const files = currentAgent.acceptsDocument ? [...$('#agent-file').files] : [];
+    if (files.length > (currentAgent.maxDocuments || 1)) throw new Error(`Choose up to ${currentAgent.maxDocuments || 1} file(s).`);
+    const read = (f) => new Promise((ok, no) => { const rd = new FileReader(); rd.onload = () => ok({ name: f.name, type: f.type, data: String(rd.result).split(',')[1] }); rd.onerror = no; rd.readAsDataURL(f); });
+    if (files.length) body.documents = await Promise.all(files.map(read));
     const r = await api(`/api/org/agents/${currentAgent.id}/run`, { method: 'POST', body });
     if (r.phi?.redactions) show(phi, `Protected: ${r.phi.redactions} identifier(s) masked (${r.phi.types.join(', ')}).`);
     out.textContent = r.output; out.classList.remove('hidden');

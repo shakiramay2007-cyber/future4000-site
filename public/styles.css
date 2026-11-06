@@ -199,3 +199,24 @@ details summary { cursor: pointer; color: var(--teal-2); font-weight: 600; margi
 #studio-out { min-height: 420px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
 @media (max-width: 1000px) { .studio { grid-template-columns: 1fr; } }
 .studio .check { text-transform: none; }
+
+/* ===== Wider layout + longer homepage ===== */
+.shell main { max-width: 1680px; padding: 28px 40px 60px; }
+.hero, .section, .home-nav, .home-foot, .final-cta { padding-left: max(40px, 4vw); padding-right: max(40px, 4vw); }
+.hero { max-width: 1760px; margin: 0 auto; }
+.section > * { max-width: 1600px; margin-left: auto; margin-right: auto; }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.steps div { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 26px; box-shadow: var(--shadow); }
+.steps span { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--navy); color: #fff; font-weight: 700; }
+.steps h3 { color: var(--navy); margin: 14px 0 8px; } .steps p { color: var(--muted); line-height: 1.55; margin: 0; }
+.agent-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.agent-cols div { border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); background: linear-gradient(180deg, #fff, #f7fbff); }
+.agent-cols h3 { color: var(--teal-2); margin: 0 0 10px; font-size: 16px; } .agent-cols ul { margin: 0; padding-left: 18px; color: var(--ink); line-height: 1.9; }
+.audience { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.audience div { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--teal); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow); }
+.audience b { color: var(--navy); } .audience span { color: var(--muted); font-size: 13px; }
+.split-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } .split-2 h3 { color: var(--navy); margin-top: 0; } .split-2 p { color: var(--muted); line-height: 1.6; }
+.faq { max-width: 980px !important; } .faq details { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.faq summary { color: var(--navy); font-size: 16px; } .faq p { color: var(--muted); line-height: 1.6; margin: 10px 0 0; }
+@media (max-width: 1000px) { .steps, .agent-cols, .audience, .split-2 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .steps, .agent-cols, .audience, .split-2 { grid-template-columns: 1fr; } .shell main { padding: 20px; } }
