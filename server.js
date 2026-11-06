@@ -44,6 +44,7 @@ app.use(express.json({ limit: '20mb' }));
 app.use(loadUser);
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'home.html')));
+app.get('/changelog', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'changelog.html')));
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
