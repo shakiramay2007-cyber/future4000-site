@@ -45,6 +45,9 @@ app.use(express.json({ limit: '20mb' }));
 app.use(loadUser);
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'home.html')));
+const CLOUD_PAGES = new Set(['workers', 'sandboxes', 'agents', 'code-studio', 'templates']);
+app.get('/cloud', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'cloud', 'index.html')));
+app.get('/cloud/:page', (req, res, next) => CLOUD_PAGES.has(req.params.page) ? res.sendFile(path.join(__dirname, 'public', 'cloud', `${req.params.page}.html`)) : next());
 app.get('/changelog', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'changelog.html')));
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));

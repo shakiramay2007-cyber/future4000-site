@@ -139,6 +139,10 @@ CREATE TABLE IF NOT EXISTS stripe_events (
   received_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS waitlist (
+  id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, organization TEXT NOT NULL, email TEXT NOT NULL,
+  interest TEXT, use_case TEXT, ip TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (email, interest)
+);
 CREATE INDEX IF NOT EXISTS idx_users_org ON users(org_id);
 CREATE INDEX IF NOT EXISTS idx_policies_org ON policies(org_id, status);
 CREATE INDEX IF NOT EXISTS idx_audit_org_time ON audit_log(org_id, created_at DESC);

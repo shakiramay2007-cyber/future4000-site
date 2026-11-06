@@ -23,6 +23,29 @@ const bad = (msg, status = 400) => Object.assign(new Error(msg), { status });
 const EDITORS = ['admin', 'compliance_officer'];
 const REVIEWERS = ['admin', 'clinician_reviewer'];
 
+// ---------- Public waitlist (F4 Cloud early access) ----------
+const waitHits = new Map();
+router.post('/waitlist', wrap(async (req, res) => {
+  const b = req.body || {};
+  if (b.website) return res.json({ ok: true }); // honeypot: bots fill hidden field
+  const now = Date.now(), h = (waitHits.get(req.ip) || []).filter((t) => now - t < 3600e3);
+  if (h.length >= 10) throw bad('Too many requests. Please try again later.', 429);
+  waitHits.set(req.ip, [...h, now]);
+  const name = String(b.name || '').trim().slice(0, 120), org = String(b.organization || '').trim().slice(0, 200);
+  const email = String(b.email || '').trim().toLowerCase().slice(0, 200), interest = String(b.interest || 'platform').slice(0, 40);
+  if (!name || !org || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw bad('Please enter your name, organization and a valid email.');
+  const useCase = String(b.use_case || '').slice(0, 2000);
+  const scan = scrubPHI(useCase);
+  if (scan.redactions) throw bad('Please remove patient information from your description.');
+  await q(`INSERT INTO waitlist (name, organization, email, interest, use_case, ip) VALUES ($1,$2,$3,$4,$5,$6)
+           ON CONFLICT (email, interest) DO UPDATE SET use_case = EXCLUDED.use_case, name = EXCLUDED.name, organization = EXCLUDED.organization`,
+    [name, org, email, interest, useCase, req.ip]);
+  res.status(201).json({ ok: true });
+}));
+router.get('/waitlist', requireRole('admin'), wrap(async (req, res) => {
+  res.json((await q('SELECT name, organization, email, interest, use_case, created_at FROM waitlist ORDER BY created_at DESC LIMIT 1000')).rows);
+}));
+
 // ---------- Accounts ----------
 router.post('/auth/signup', loginRateLimit, wrap(async (req, res) => {
   const { organization, full_name, email, password, credentials } = req.body || {};
