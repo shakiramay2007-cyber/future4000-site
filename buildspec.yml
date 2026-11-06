@@ -1,0 +1,14 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_URI
+      - TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c1-8)
+  build:
+    commands:
+      - docker build -t $ECR_URI:latest -t $ECR_URI:$TAG .
+  post_build:
+    commands:
+      - docker push $ECR_URI:latest
+      - docker push $ECR_URI:$TAG
+      - aws ecs update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment --region $AWS_DEFAULT_REGION || true

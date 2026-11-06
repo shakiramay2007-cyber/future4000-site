@@ -1,4 +1,4 @@
-// F4 Daily Scan: runs every morning at 8:30 AM Eastern (Render Cron Job) and on demand.
+// F4 Daily Scan: runs every morning at 8:30 AM Eastern (AWS EventBridge Scheduler or Render Cron Job) and on demand.
 // 1. Pulls new rules and notices from the Federal Register for healthcare agencies.
 // 2. Flags policies past their review date, policies stuck in review, and missing staff sign-offs.
 // 3. Tests every connected integration.

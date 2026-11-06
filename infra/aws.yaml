@@ -1,0 +1,326 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  FUTURE4000 platform on AWS using HIPAA-eligible services: ECS Fargate, Application Load Balancer,
+  RDS PostgreSQL (encrypted), S3 (encrypted, private), ECR, CodeBuild, Secrets Manager, CloudWatch Logs,
+  and EventBridge Scheduler for the 8:30 AM Eastern daily scan. Claude runs on Amazon Bedrock through the task role.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least two subnets in different Availability Zones (public subnets of the default VPC are fine for a first deployment).
+  GitHubRepoUrl:
+    Type: String
+    Default: https://github.com/shakiramay2007-cyber/future4000-site
+  DesiredCount:
+    Type: Number
+    Default: 0
+    Description: Set to 1 after the first image build succeeds.
+  DbInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+
+Resources:
+  # ---------------- Secrets ----------------
+  DbSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: future4000/db
+      GenerateSecretString:
+        SecretStringTemplate: '{"username":"future4000_admin"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludePunctuation: true
+  AppSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: future4000/app
+      Description: Add STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET and other keys here after deployment.
+      GenerateSecretString:
+        SecretStringTemplate: '{"STRIPE_SECRET_KEY":"","STRIPE_PUBLISHABLE_KEY":"","STRIPE_WEBHOOK_SECRET":"","SLACK_BOT_TOKEN":"","SLACK_SCAN_CHANNEL":""}'
+        GenerateStringKey: SESSION_SECRET
+        PasswordLength: 64
+        ExcludePunctuation: true
+
+  # ---------------- Network security ----------------
+  AlbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: FUTURE4000 load balancer
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
+  AppSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: FUTURE4000 app tasks
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 3000, ToPort: 3000, SourceSecurityGroupId: !Ref AlbSG }
+  DbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: FUTURE4000 database (app access only)
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref AppSG }
+
+  # ---------------- Database ----------------
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: FUTURE4000 database subnets
+      SubnetIds: !Ref SubnetIds
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: future4000-db
+      Engine: postgres
+      EngineVersion: '18'
+      DBInstanceClass: !Ref DbInstanceClass
+      AllocatedStorage: '20'
+      StorageType: gp3
+      StorageEncrypted: true
+      DBName: future4000
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DbSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DbSecret}:SecretString:password}}'
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups: [!Ref DbSG]
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 7
+      DeletionProtection: true
+      EnableCloudwatchLogsExports: [postgresql]
+      CopyTagsToSnapshot: true
+
+  # ---------------- Document archive ----------------
+  DocsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration: { Status: Enabled }
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+  DocsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DocsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: [!GetAtt DocsBucket.Arn, !Sub '${DocsBucket.Arn}/*']
+            Condition: { Bool: { 'aws:SecureTransport': 'false' } }
+
+  # ---------------- Container image ----------------
+  Repo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: future4000
+      ImageScanningConfiguration: { ScanOnPush: true }
+      EncryptionConfiguration: { EncryptionType: AES256 }
+      LifecyclePolicy:
+        LifecyclePolicyText: '{"rules":[{"rulePriority":1,"description":"keep 20 images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":20},"action":{"type":"expire"}}]}'
+
+  BuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement: [{ Effect: Allow, Principal: { Service: codebuild.amazonaws.com }, Action: sts:AssumeRole }]
+      Policies:
+        - PolicyName: build
+          PolicyDocument:
+            Statement:
+              - { Effect: Allow, Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'], Resource: '*' }
+              - { Effect: Allow, Action: ['ecr:GetAuthorizationToken'], Resource: '*' }
+              - { Effect: Allow, Action: ['ecr:BatchCheckLayerAvailability', 'ecr:InitiateLayerUpload', 'ecr:UploadLayerPart', 'ecr:CompleteLayerUpload', 'ecr:PutImage', 'ecr:BatchGetImage', 'ecr:GetDownloadUrlForLayer'], Resource: !GetAtt Repo.Arn }
+              - { Effect: Allow, Action: ['ecs:UpdateService'], Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:service/future4000/*' }
+  Build:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: future4000-build
+      ServiceRole: !GetAtt BuildRole.Arn
+      Source: { Type: GITHUB, Location: !Ref GitHubRepoUrl, BuildSpec: buildspec.yml }
+      Artifacts: { Type: NO_ARTIFACTS }
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - { Name: ECR_URI, Value: !GetAtt Repo.RepositoryUri }
+          - { Name: CLUSTER, Value: future4000 }
+          - { Name: SERVICE, Value: future4000-web }
+
+  # ---------------- App runtime ----------------
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: future4000
+      ClusterSettings: [{ Name: containerInsights, Value: enabled }]
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: /future4000/app, RetentionInDays: 365 }
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement: [{ Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: sts:AssumeRole }]
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy]
+      Policies:
+        - PolicyName: secrets
+          PolicyDocument:
+            Statement:
+              - { Effect: Allow, Action: secretsmanager:GetSecretValue, Resource: [!Ref DbSecret, !Ref AppSecret] }
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement: [{ Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: sts:AssumeRole }]
+      Policies:
+        - PolicyName: app
+          PolicyDocument:
+            Statement:
+              - { Effect: Allow, Action: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'], Resource: '*' }
+              - { Effect: Allow, Action: ['s3:PutObject', 's3:GetObject'], Resource: !Sub '${DocsBucket.Arn}/*' }
+              - { Effect: Allow, Action: ['s3:ListBucket'], Resource: !GetAtt DocsBucket.Arn }
+
+  TaskDef:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: future4000
+      Cpu: '512'
+      Memory: '1024'
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: app
+          Image: !Sub '${Repo.RepositoryUri}:latest'
+          PortMappings: [{ ContainerPort: 3000 }]
+          Environment:
+            - { Name: NODE_ENV, Value: production }
+            - { Name: PORT, Value: '3000' }
+            - { Name: AWS_REGION, Value: !Ref 'AWS::Region' }
+            - { Name: BEDROCK_ENABLED, Value: 'true' }
+            - { Name: S3_BUCKET, Value: !Ref DocsBucket }
+            - { Name: PGHOST, Value: !GetAtt Database.Endpoint.Address }
+            - { Name: PGPORT, Value: '5432' }
+            - { Name: PGDATABASE, Value: future4000 }
+            - { Name: FHIR_BASE_URL, Value: https://hapi.fhir.org/baseR4 }
+          Secrets:
+            - { Name: PGUSER, ValueFrom: !Sub '${DbSecret}:username::' }
+            - { Name: PGPASSWORD, ValueFrom: !Sub '${DbSecret}:password::' }
+            - { Name: SESSION_SECRET, ValueFrom: !Sub '${AppSecret}:SESSION_SECRET::' }
+            - { Name: STRIPE_SECRET_KEY, ValueFrom: !Sub '${AppSecret}:STRIPE_SECRET_KEY::' }
+            - { Name: STRIPE_PUBLISHABLE_KEY, ValueFrom: !Sub '${AppSecret}:STRIPE_PUBLISHABLE_KEY::' }
+            - { Name: STRIPE_WEBHOOK_SECRET, ValueFrom: !Sub '${AppSecret}:STRIPE_WEBHOOK_SECRET::' }
+            - { Name: SLACK_BOT_TOKEN, ValueFrom: !Sub '${AppSecret}:SLACK_BOT_TOKEN::' }
+            - { Name: SLACK_SCAN_CHANNEL, ValueFrom: !Sub '${AppSecret}:SLACK_SCAN_CHANNEL::' }
+          LogConfiguration:
+            LogDriver: awslogs
+            Options: { awslogs-group: !Ref LogGroup, awslogs-region: !Ref 'AWS::Region', awslogs-stream-prefix: app }
+
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: future4000
+      Scheme: internet-facing
+      Subnets: !Ref SubnetIds
+      SecurityGroups: [!Ref AlbSG]
+      LoadBalancerAttributes:
+        - { Key: routing.http.drop_invalid_header_fields.enabled, Value: 'true' }
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Port: 3000
+      Protocol: HTTP
+      TargetType: ip
+      HealthCheckPath: /healthz
+      TargetGroupAttributes: [{ Key: deregistration_delay.timeout_seconds, Value: '30' }]
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions: [{ Type: forward, TargetGroupArn: !Ref TargetGroup }]
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: Listener
+    Properties:
+      ServiceName: future4000-web
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref TaskDef
+      HealthCheckGracePeriodSeconds: 60
+      DeploymentConfiguration:
+        DeploymentCircuitBreaker: { Enable: true, Rollback: true }
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups: [!Ref AppSG]
+      LoadBalancers: [{ ContainerName: app, ContainerPort: 3000, TargetGroupArn: !Ref TargetGroup }]
+
+  # ---------------- 8:30 AM Eastern daily scan (daylight saving handled automatically) ----------------
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement: [{ Effect: Allow, Principal: { Service: scheduler.amazonaws.com }, Action: sts:AssumeRole }]
+      Policies:
+        - PolicyName: run-scan
+          PolicyDocument:
+            Statement:
+              - { Effect: Allow, Action: ecs:RunTask, Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/future4000*' }
+              - { Effect: Allow, Action: iam:PassRole, Resource: [!GetAtt ExecutionRole.Arn, !GetAtt TaskRole.Arn] }
+  DailyScan:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: future4000-daily-scan
+      Description: F4 Daily Scan at 8:30 AM Eastern every day
+      ScheduleExpression: cron(30 8 * * ? *)
+      ScheduleExpressionTimezone: America/New_York
+      FlexibleTimeWindow: { Mode: 'OFF' }
+      Target:
+        Arn: !GetAtt Cluster.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        EcsParameters:
+          TaskDefinitionArn: !Ref TaskDef
+          LaunchType: FARGATE
+          NetworkConfiguration:
+            AwsvpcConfiguration:
+              AssignPublicIp: ENABLED
+              Subnets: !Ref SubnetIds
+              SecurityGroups: [!Ref AppSG]
+        Input: '{"containerOverrides":[{"name":"app","command":["node","scripts/daily-scan.js"]}]}'
+
+Outputs:
+  AppUrl:
+    Value: !Sub 'http://${Alb.DNSName}'
+  BuildProject:
+    Value: !Ref Build
+  DocsBucketName:
+    Value: !Ref DocsBucket
+  AppSecretName:
+    Value: future4000/app

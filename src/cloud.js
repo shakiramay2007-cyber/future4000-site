@@ -4,7 +4,7 @@ import { scrubPHI } from './phi.js';
 
 // ---------- Document storage (AWS S3 first, Supabase Storage second) ----------
 let s3;
-const s3Ready = () => Boolean(process.env.S3_BUCKET && process.env.AWS_ACCESS_KEY_ID);
+const s3Ready = () => Boolean(process.env.S3_BUCKET);
 const supabaseReady = () => Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_BUCKET);
 
 export function storageProvider() {

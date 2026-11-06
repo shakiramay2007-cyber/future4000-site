@@ -29,7 +29,7 @@ async function boot() {
     startApp();
   } catch {
     $('#auth').classList.remove('hidden');
-    if (!STATUS.database) show($('#auth-msg'), 'The database is not connected yet. Add DATABASE_URL in Render to enable sign-in.', 'bad');
+    if (!STATUS.database) show($('#auth-msg'), 'The database is not connected yet. Connect the database to enable sign-in.', 'bad');
   }
 }
 

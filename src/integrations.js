@@ -61,7 +61,7 @@ export const INTEGRATIONS = [
   { id: 'aws', brand: 'F4 Vault', connects: 'AWS S3 + Bedrock', category: 'Cloud & AI', hipaa: true, priority: 1,
     fixes: ['Complex console and setup', 'Easy to misconfigure public buckets', 'Bills hard to predict'],
     upgrade: 'Encrypted document archive for every approved policy, Claude on Bedrock under your AWS BAA, preset secure settings.',
-    env: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'S3_BUCKET'], setup: 'Create a private S3 bucket and an IAM user limited to that bucket and bedrock:InvokeModel. Sign the AWS BAA in AWS Artifact.',
+    env: ['S3_BUCKET'], setup: 'On AWS the app uses its own IAM role (no keys). Elsewhere, add an IAM user limited to the bucket and bedrock:InvokeModel. Sign the AWS BAA in AWS Artifact.',
     test: testS3 },
   { id: 'google-cloud', brand: 'F4 Intelligence Backup', connects: 'Google Cloud Vertex AI', category: 'Cloud & AI', hipaa: true, priority: 2,
     fixes: ['Single AI provider is a single point of failure'],
@@ -142,7 +142,7 @@ export function listIntegrations() {
 export async function testIntegration(id) {
   const i = INTEGRATIONS.find((x) => x.id === id);
   if (!i) throw Object.assign(new Error('Unknown integration'), { status: 404 });
-  if (!has(...i.env)) return { id, ok: false, status: 'needs-credentials', message: `Add these settings in Render: ${i.env.join(', ')}`, setup: i.setup };
+  if (!has(...i.env)) return { id, ok: false, status: 'needs-credentials', message: `Add these settings to your environment: ${i.env.join(', ')}`, setup: i.setup };
   if (!i.test) return { id, ok: true, status: 'credentials-set', message: 'Credentials saved. The live connector is completed after partner approval.', setup: i.setup };
   try {
     return { id, ok: true, status: 'connected', message: await i.test() };

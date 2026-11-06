@@ -24,7 +24,7 @@ const MODELS = {
 };
 
 export const PROVIDERS = {
-  bedrock: { label: 'Claude on AWS Bedrock', ready: () => Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY), baa: 'AWS BAA' },
+  bedrock: { label: 'Claude on AWS Bedrock', ready: () => process.env.BEDROCK_ENABLED === 'true' || Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY), baa: 'AWS BAA' },
   vertex: { label: 'Claude on Google Vertex AI', ready: vertexReady, baa: 'Google Cloud BAA' },
   anthropic: { label: 'Claude (Anthropic API)', ready: () => Boolean(process.env.ANTHROPIC_API_KEY), baa: 'Anthropic BAA (sales agreement)' },
   openai: { label: 'ChatGPT (OpenAI API)', ready: () => Boolean(process.env.OPENAI_API_KEY), baa: 'OpenAI BAA (sales agreement)' }
@@ -86,7 +86,7 @@ export async function complete(tier, system, userText, { preferred } = {}) {
   const order = preferred && PROVIDERS[preferred] ? [preferred, ...ORDER.filter((p) => p !== preferred)] : ORDER;
   const ready = order.filter((p) => PROVIDERS[p].ready());
   if (!ready.length) {
-    throw Object.assign(new Error('No AI provider is connected. Add AWS, Google Vertex, Anthropic, or OpenAI keys in Render.'), { status: 503 });
+    throw Object.assign(new Error('No AI provider is connected. Add AWS, Google Vertex, Anthropic, or OpenAI keys in your hosting settings.'), { status: 503 });
   }
   const failovers = [];
   for (const p of ready) {

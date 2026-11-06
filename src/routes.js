@@ -333,7 +333,7 @@ router.post('/scan/run', requireRole('admin', 'compliance_officer'), wrap(async 
 
 // ---------- Subscriptions (embedded Stripe Checkout) ----------
 router.post('/billing/subscribe', requireRole('admin'), wrap(async (req, res) => {
-  if (!stripe) throw bad('Stripe is not connected yet. Add STRIPE_SECRET_KEY in Render.', 503);
+  if (!stripe) throw bad('Stripe is not connected yet. Add STRIPE_SECRET_KEY to your environment.', 503);
   const planId = req.body?.plan;
   const plan = PLANS[planId];
   if (!plan) throw bad('Choose a valid plan.');

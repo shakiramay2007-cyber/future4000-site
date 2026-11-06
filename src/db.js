@@ -4,17 +4,17 @@ import { REGULATION_SEED } from './regulations.js';
 
 const { Pool } = pg;
 
+// Connects with DATABASE_URL (Render, Supabase, local) or PGHOST/PGUSER/PGPASSWORD/PGDATABASE (AWS RDS via Secrets Manager).
+const local = (process.env.DATABASE_URL || process.env.PGHOST || '').includes('localhost');
+const ssl = process.env.DATABASE_SSL === 'false' || local ? false : { rejectUnauthorized: false };
 export const pool = process.env.DATABASE_URL
-  ? new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.DATABASE_SSL === 'false' ? false : (process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false })
-    })
-  : null;
+  ? new Pool({ connectionString: process.env.DATABASE_URL, ssl })
+  : process.env.PGHOST ? new Pool({ ssl }) : null;
 
 export const dbConfigured = () => Boolean(pool);
 
 export async function q(text, params = []) {
-  if (!pool) throw Object.assign(new Error('Database is not connected. Add DATABASE_URL in Render.'), { status: 503 });
+  if (!pool) throw Object.assign(new Error('Database is not connected. Set DATABASE_URL or PGHOST.'), { status: 503 });
   return pool.query(text, params);
 }
 
