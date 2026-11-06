@@ -3,7 +3,7 @@
 // HIPAA: only providers with a signed BAA may receive anything derived from PHI. Text is PHI-scrubbed first either way.
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { scrubPHI } from './phi.js';
-import { vertexReady, runOnVertex } from './cloud.js';
+import { vertexReady, runOnVertex, runGptOssOnVertex } from './cloud.js';
 
 const MODELS = {
   bedrock: {
@@ -27,10 +27,11 @@ export const PROVIDERS = {
   bedrock: { label: 'Claude on AWS Bedrock', ready: () => process.env.BEDROCK_ENABLED === 'true' || Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY), baa: 'AWS BAA' },
   vertex: { label: 'Claude on Google Vertex AI', ready: vertexReady, baa: 'Google Cloud BAA' },
   anthropic: { label: 'Claude (Anthropic API)', ready: () => Boolean(process.env.ANTHROPIC_API_KEY), baa: 'Anthropic BAA (sales agreement)' },
-  openai: { label: 'ChatGPT (OpenAI API)', ready: () => Boolean(process.env.OPENAI_API_KEY), baa: 'OpenAI BAA (sales agreement)' }
+  openai: { label: 'ChatGPT (OpenAI API)', ready: () => Boolean(process.env.OPENAI_API_KEY), baa: 'OpenAI BAA (sales agreement)' },
+  'vertex-openai': { label: 'OpenAI gpt-oss on Google Vertex AI', ready: () => vertexReady() && process.env.VERTEX_OPENAI_ENABLED === 'true', baa: 'Google Cloud BAA' }
 };
 
-const ORDER = (process.env.AI_PROVIDER_ORDER || 'bedrock,vertex,anthropic,openai').split(',').map((s) => s.trim()).filter((p) => PROVIDERS[p]);
+const ORDER = (process.env.AI_PROVIDER_ORDER || 'bedrock,vertex,anthropic,openai,vertex-openai').split(',').map((s) => s.trim()).filter((p) => PROVIDERS[p]);
 
 let bedrockClient;
 // Claude features used on Bedrock:
@@ -88,7 +89,7 @@ async function callOpenAI(tier, system, text) {
   return { text: j.choices?.[0]?.message?.content || '', model: `openai:${model}`, usage: j.usage };
 }
 
-const CALLERS = { bedrock: callBedrock, vertex: runOnVertex, anthropic: callAnthropic, openai: callOpenAI };
+const CALLERS = { bedrock: callBedrock, vertex: runOnVertex, anthropic: callAnthropic, openai: callOpenAI, 'vertex-openai': runGptOssOnVertex };
 
 export function aiConfigured() {
   return ORDER.some((p) => PROVIDERS[p].ready());

@@ -112,3 +112,27 @@ export async function testVertex() {
     throw new Error(`Vertex AI error: ${m.slice(0, 300)}`);
   }
 }
+
+// OpenAI's open models (gpt-oss) served by Google Vertex AI through its OpenAI-compatible endpoint.
+// Same Google sign-in as Claude on Vertex; covered by the Google Cloud agreement rather than OpenAI's.
+const GPT_OSS = { heavy: process.env.VERTEX_OPENAI_MODEL_HEAVY || 'openai/gpt-oss-120b-maas', standard: process.env.VERTEX_OPENAI_MODEL_STANDARD || 'openai/gpt-oss-120b-maas', fast: process.env.VERTEX_OPENAI_MODEL_FAST || 'openai/gpt-oss-20b-maas' };
+let googleAuthClient;
+async function googleToken() {
+  if (!googleAuthClient) {
+    const { GoogleAuth } = await import('google-auth-library');
+    const json = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+    googleAuthClient = new GoogleAuth({ ...(json ? { credentials: JSON.parse(json) } : {}), scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
+  }
+  return (await googleAuthClient.getClient()).getAccessToken().then((t) => t.token || t);
+}
+export async function runGptOssOnVertex(tier, system, userText) {
+  const region = process.env.VERTEX_OPENAI_REGION || 'global';
+  const host = region === 'global' ? 'aiplatform.googleapis.com' : `${region}-aiplatform.googleapis.com`;
+  const url = `https://${host}/v1/projects/${process.env.GOOGLE_CLOUD_PROJECT}/locations/${region}/endpoints/openapi/chat/completions`;
+  const r = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(120000),
+    headers: { Authorization: `Bearer ${await googleToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: GPT_OSS[tier], messages: [{ role: 'system', content: system }, { role: 'user', content: scrubPHI(userText).clean }] }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error?.message || j[0]?.error?.message || `Vertex OpenAI-compatible endpoint error ${r.status}: enable the gpt-oss model in Model Garden.`);
+  return { text: j.choices?.[0]?.message?.content || '', model: `vertex:${GPT_OSS[tier]}`, usage: j.usage };
+}
