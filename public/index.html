@@ -45,7 +45,7 @@
       <button class="tab" data-view="learn">LearnTrack</button>
       <button class="tab" data-view="agents">AI Agents</button>
       <button class="tab" data-view="studio">F4 Studio</button>
-      <button class="tab" data-view="integrations">F4 Connect</button>
+      <button class="tab" data-view="integrations">4000 Connect</button>
       <button class="tab admin-only" data-view="governance">AI Governance</button>
       <button class="tab admin-only" data-view="team">Team</button>
       <button class="tab admin-only" data-view="audit">Audit Log</button>
@@ -214,8 +214,27 @@
 
       <!-- Integrations -->
       <section id="integrations" class="view">
-        <h1>F4 Connect</h1>
-        <p class="lead">Every connector shows <b>Connected</b> only after its credentials are saved and a live test passes.</p>
+        <h1>4000 Connect</h1>
+        <p class="lead">Connect the systems you already use. Every connector shows <b>Connected</b> only after its credentials are saved and a test passes.</p>
+
+        <div class="panel admin-only" id="pay-panel">
+          <div class="row-between"><h2>Payment systems</h2><span class="tag hipaa">No patient data in payment systems</span></div>
+          <p class="muted small">Connect the payment system your organization already uses. F4 Pay works on top of it, so you can switch later without starting over. Keys are encrypted before they are saved and are never shown again.</p>
+          <div id="pay-msg" class="notice hidden"></div>
+          <div id="pay-connections" class="grid"></div>
+          <h3>Add a payment system</h3>
+          <div class="pay-form">
+            <label>Payment system <select id="pay-provider"></select></label>
+            <p id="pay-serves" class="small muted"></p>
+            <label>Label (a location or department, never a patient) <input id="pay-label" maxlength="80" placeholder="Main clinic front desk"></label>
+            <label>Mode <select id="pay-mode"><option value="test">Test (fake money)</option><option value="live">Live (real money)</option></select></label>
+            <label id="pay-live-confirm" class="hidden"><input type="checkbox" id="pay-confirm-live"> I confirm this is a live account that moves real money.</label>
+            <div id="pay-fields"></div>
+            <p id="pay-docs" class="small muted"></p>
+            <button class="primary" id="pay-connect">Connect and test</button>
+          </div>
+          <ul id="pay-rules" class="small muted"></ul>
+        </div>
         <div class="filters" id="int-filters"></div>
         <div id="integration-grid" class="grid"></div>
       </section>

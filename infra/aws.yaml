@@ -36,9 +36,9 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: future4000/app
-      Description: Add STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET and other keys here after deployment.
+      Description: Add STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET, F4_SECRETS_KEY (openssl rand -hex 32) and other keys here after deployment.
       GenerateSecretString:
-        SecretStringTemplate: '{"STRIPE_SECRET_KEY":"","STRIPE_PUBLISHABLE_KEY":"","STRIPE_WEBHOOK_SECRET":"","SLACK_BOT_TOKEN":"","SLACK_SCAN_CHANNEL":""}'
+        SecretStringTemplate: '{"STRIPE_SECRET_KEY":"","STRIPE_PUBLISHABLE_KEY":"","STRIPE_WEBHOOK_SECRET":"","SLACK_BOT_TOKEN":"","SLACK_SCAN_CHANNEL":"","F4_SECRETS_KEY":""}'
         GenerateStringKey: SESSION_SECRET
         PasswordLength: 64
         ExcludePunctuation: true
@@ -228,6 +228,7 @@ Resources:
             - { Name: PGUSER, ValueFrom: !Sub '${DbSecret}:username::' }
             - { Name: PGPASSWORD, ValueFrom: !Sub '${DbSecret}:password::' }
             - { Name: SESSION_SECRET, ValueFrom: !Sub '${AppSecret}:SESSION_SECRET::' }
+            - { Name: F4_SECRETS_KEY, ValueFrom: !Sub '${AppSecret}:F4_SECRETS_KEY::' }
             - { Name: STRIPE_SECRET_KEY, ValueFrom: !Sub '${AppSecret}:STRIPE_SECRET_KEY::' }
             - { Name: STRIPE_PUBLISHABLE_KEY, ValueFrom: !Sub '${AppSecret}:STRIPE_PUBLISHABLE_KEY::' }
             - { Name: STRIPE_WEBHOOK_SECRET, ValueFrom: !Sub '${AppSecret}:STRIPE_WEBHOOK_SECRET::' }

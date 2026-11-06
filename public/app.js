@@ -371,6 +371,8 @@ $('#agent-run').addEventListener('click', async () => {
 // ---------- Integrations ----------
 let INTS = [];
 async function loadIntegrations() {
+  $('#pay-panel').classList.toggle('hidden', !isAdmin());
+  if (isAdmin()) loadPay().catch((e) => show($('#pay-msg'), e.message, 'bad'));
   INTS = await api('/api/integrations');
   const cats = ['All', ...new Set(INTS.map((i) => i.category))];
   $('#int-filters').innerHTML = cats.map((c, i) => `<button class="chip ${i ? '' : 'active'}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
@@ -400,6 +402,74 @@ function renderInts(cat) {
       res.innerHTML = `<span class="${r.ok ? 'good' : 'warn'}">${r.status === 'connected' ? 'Connected: ' : ''}${esc(r.message)}</span>`;
     } catch (e) { res.textContent = e.message; }
   }));
+}
+
+// ---------- 4000 Connect: payment systems (F4 Pay) ----------
+let PAY = null;
+async function loadPay() {
+  PAY = await api('/api/pay/providers');
+  const sel = $('#pay-provider');
+  sel.innerHTML = PAY.providers.map((p) => `<option value="${p.id}">${esc(p.name)}${p.guided ? ' (guided setup)' : ''}</option>`).join('');
+  $('#pay-rules').innerHTML = PAY.rules.map((r) => `<li>${esc(r)}</li>`).join('');
+  const liveOpt = $('#pay-mode option[value="live"]');
+  liveOpt.disabled = !PAY.liveAllowed;
+  if (!PAY.liveAllowed) liveOpt.textContent = 'Live (turned on after your administrator sets the encryption key)';
+  const renderFields = () => {
+    const p = PAY.providers.find((x) => x.id === sel.value);
+    $('#pay-serves').textContent = p.serves;
+    $('#pay-docs').textContent = `Where to find this: ${p.docs}`;
+    $('#pay-fields').innerHTML = p.fields.map((f) => `<label>${esc(f.label)} <input data-key="${f.key}" type="${f.secret ? 'password' : 'text'}" autocomplete="off" placeholder="${esc(f.hint)}"></label>`).join('');
+  };
+  sel.onchange = renderFields;
+  $('#pay-mode').onchange = () => $('#pay-live-confirm').classList.toggle('hidden', $('#pay-mode').value !== 'live');
+  $('#pay-connect').onclick = connectPay;
+  renderFields();
+  await renderPayConnections();
+}
+async function renderPayConnections() {
+  const rows = await api('/api/pay/connections');
+  const badge = { connected: 'connected', failed: 'needs', untested: 'needs' };
+  $('#pay-connections').innerHTML = rows.length ? rows.map((c) => `
+    <div class="card" data-id="${c.id}">
+      <h3>${esc(c.label)}${c.isPrimary ? ' <span class="tag">Primary</span>' : ''}</h3>
+      <p class="small">${esc(c.providerName)} · key ${esc(c.keyHint)}</p>
+      <div class="tags"><span class="tag ${c.mode === 'live' ? 'hipaa' : ''}">${c.mode === 'live' ? 'Live' : 'Test mode'}</span>
+        <span class="tag ${badge[c.status] || ''}">${esc(label(c.status))}</span></div>
+      <p class="small">${esc(c.lastTestMessage || '')}</p><p class="small muted">Last test: ${when(c.lastTestedAt)}</p>
+      <div class="row-between"><button data-act="test">Test again</button>${c.isPrimary ? '' : '<button data-act="primary">Make primary</button>'}<button data-act="remove">Disconnect</button></div>
+    </div>`).join('') : '<p class="muted">No payment system connected yet.</p>';
+  $$('#pay-connections button').forEach((b) => b.addEventListener('click', async () => {
+    const id = b.closest('.card').dataset.id, act = b.dataset.act;
+    try {
+      if (act === 'remove') {
+        if (!confirm('Disconnect this payment system? Its saved keys will be erased.')) return;
+        await api(`/api/pay/connections/${id}`, { method: 'DELETE' });
+        show($('#pay-msg'), 'Disconnected. The saved keys were erased.', 'ok');
+      } else if (act === 'primary') {
+        await api(`/api/pay/connections/${id}/primary`, { method: 'POST' });
+      } else {
+        b.textContent = 'Testing...';
+        const r = await api(`/api/pay/connections/${id}/test`, { method: 'POST' });
+        show($('#pay-msg'), r.message, r.ok ? 'ok' : 'warn');
+      }
+      await renderPayConnections();
+    } catch (e) { show($('#pay-msg'), e.message, 'bad'); }
+  }));
+}
+async function connectPay() {
+  const btn = $('#pay-connect');
+  const credentials = {};
+  $$('#pay-fields input').forEach((i) => { credentials[i.dataset.key] = i.value; });
+  btn.disabled = true; btn.textContent = 'Connecting...';
+  try {
+    const r = await api('/api/pay/connections', { method: 'POST', body: {
+      provider: $('#pay-provider').value, mode: $('#pay-mode').value, label: $('#pay-label').value,
+      credentials, confirmLive: $('#pay-confirm-live').checked } });
+    $$('#pay-fields input').forEach((i) => { i.value = ''; });
+    show($('#pay-msg'), `Saved and encrypted. ${r.message}`, r.ok ? 'ok' : 'warn');
+    await renderPayConnections();
+  } catch (e) { show($('#pay-msg'), e.message, 'bad'); }
+  finally { btn.disabled = false; btn.textContent = 'Connect and test'; }
 }
 
 // ---------- Team ----------

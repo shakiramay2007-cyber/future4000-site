@@ -297,3 +297,13 @@ body { text-rendering: optimizeLegibility; font-feature-settings: "cv11", "ss01"
 .hp { position: absolute; left: -9999px; }
 @media (max-width: 1000px) { .cs-grid { grid-template-columns: 1fr 1fr; } .cloud-toc { columns: 2; } }
 @media (max-width: 640px) { .cs-grid, .wl { grid-template-columns: 1fr; } .wl textarea, .wl button, .wl .notice { grid-column: auto; } .cloud-toc { columns: 1; } .cloud .home-nav nav a:not(.nav-cta) { display: none; } }
+
+/* 4000 Connect: payment systems */
+#pay-panel { margin-bottom: 28px; }
+.pay-form { display: grid; gap: 12px; max-width: 640px; margin: 8px 0 16px; }
+.pay-form label { display: grid; gap: 6px; font-weight: 600; }
+.pay-form label input[type="checkbox"] { width: auto; display: inline; margin-right: 8px; }
+#pay-live-confirm { display: block; font-weight: 500; }
+#pay-live-confirm.hidden { display: none; }
+#pay-connections { margin: 12px 0 20px; }
+#pay-connections .row-between { gap: 8px; flex-wrap: wrap; }
