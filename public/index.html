@@ -33,11 +33,13 @@
     </div>
   </section>
 
-  <div id="app" class="hidden">
-    <nav class="tabs">
+  <div id="app" class="hidden shell">
+    <nav class="tabs side">
+      <div class="side-search"><input id="side-search" placeholder="Search policies..." /></div>
       <button class="tab active" data-view="dashboard">Dashboard</button>
       <button class="tab" data-view="policies">Policies</button>
       <button class="tab" data-view="templates">F4 Templates</button>
+      <button class="tab" data-view="learn">LearnTrack</button>
       <button class="tab" data-view="agents">AI Agents</button>
       <button class="tab" data-view="integrations">F4 Connect</button>
       <button class="tab admin-only" data-view="team">Team</button>
@@ -61,11 +63,19 @@
           </form>
         </div>
         <div id="compliance" class="hidden">
-          <div class="score-row">
-            <div class="score"><span id="score-num">0</span>%<small>Regulations covered by an approved policy</small></div>
-            <div class="stat"><b id="stat-regs">0</b><small>Applicable requirements</small></div>
-            <div class="stat"><b id="stat-policies">0</b><small>Policies</small></div>
-            <div class="stat"><b id="stat-review">0</b><small>Awaiting clinician review</small></div>
+          <div class="welcome"><div><h1 id="welcome-title">Compliance &amp; Accreditation Command Center</h1><p class="muted" id="welcome-sub"></p></div></div>
+          <div class="kpis">
+            <div class="kpi k1"><span class="ki">⛨</span><div><b><span id="score-num">0</span>%</b><small>Compliance score</small></div></div>
+            <div class="kpi k2"><span class="ki">⌖</span><div><b id="stat-regs">0</b><small>Applicable requirements</small></div></div>
+            <div class="kpi k3"><span class="ki">✎</span><div><b id="stat-policies">0</b><small>Policies</small></div></div>
+            <div class="kpi k4"><span class="ki">◷</span><div><b id="stat-review">0</b><small>Awaiting clinician review</small></div></div>
+            <div class="kpi k5"><span class="ki">✓</span><div><b id="stat-training">0%</b><small>Training completion</small></div></div>
+          </div>
+          <div class="dash-grid">
+            <div class="panel"><h2>Survey readiness</h2><div class="donut-wrap"><svg viewBox="0 0 120 120" class="donut"><circle cx="60" cy="60" r="48" class="d-bg"/><circle cx="60" cy="60" r="48" class="d-fg" id="donut-fg"/></svg><div class="donut-label"><b id="donut-num">0%</b><small>Ready</small></div></div>
+              <div id="level-bars"></div></div>
+            <div class="panel"><h2>Policy pipeline</h2><div id="pipeline"></div></div>
+            <div class="panel editor-only"><h2>Recent activity</h2><div id="activity" class="activity"></div></div>
           </div>
           <div class="panel">
             <div class="row-between"><h2>F4 Daily Scan <small class="muted" id="scan-time"></small></h2><button class="secondary editor-only" id="scan-run">Run scan now</button></div>
@@ -106,6 +116,20 @@
         <p class="lead">One-click compliance packs. Each pack creates every required policy as a linked draft, ready for clinician review. Policies you already have are skipped.</p>
         <div id="template-msg" class="notice hidden"></div>
         <div id="template-grid" class="grid"></div>
+      </section>
+
+      <!-- LearnTrack -->
+      <section id="learn" class="view">
+        <div class="row-between"><h1>LearnTrack</h1>
+          <form id="course-form" class="inline-form editor-only"><select id="course-policy"></select><button class="primary">Build course from policy</button></form></div>
+        <p class="lead">Training built from your approved policies: objectives, key points, a clinical scenario, a 10-question quiz, and a certificate at 80% or higher. Passing also records the staff sign-off on the policy.</p>
+        <div id="learn-msg" class="notice hidden"></div>
+        <div class="policy-layout">
+          <div id="course-list" class="policy-list"></div>
+          <div id="course-detail" class="panel hidden"></div>
+        </div>
+        <div class="editor-only"><h2>Completion report</h2>
+          <table class="table"><thead><tr><th>Staff</th><th>Role</th><th>Course</th><th>Status</th><th>Due</th></tr></thead><tbody id="learn-report"></tbody></table></div>
       </section>
 
       <!-- Agents -->

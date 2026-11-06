@@ -59,8 +59,8 @@ function startApp() {
   $$('.admin-strict').forEach((el) => el.classList.toggle('hidden', !isAdmin()));
   $$('.editor-only').forEach((el) => el.classList.toggle('hidden', !isEditor()));
   if (!isAdmin()) $('[data-view="billing"]').classList.add('hidden');
-  loadDashboard(); loadPolicies(); loadTemplates(); loadAgents(); loadIntegrations();
-  if (isEditor()) { loadTeam(); loadAudit(); }
+  loadDashboard(); loadPolicies().then(loadLearn); loadTemplates(); loadAgents(); loadIntegrations();
+  if (isEditor()) { loadTeam(); loadAudit(); loadActivity(); }
   if (isAdmin()) loadBilling();
   if (new URLSearchParams(location.search).get('billing') === 'done') {
     $('[data-view="billing"]').click();
@@ -90,6 +90,14 @@ async function loadDashboard() {
   REGS = c.regulations;
   $('#compliance').classList.remove('hidden');
   $('#score-num').textContent = c.score;
+  $('#donut-num').textContent = `${c.score}%`;
+  const circ = 2 * Math.PI * 48; $('#donut-fg').style.strokeDasharray = `${(c.score / 100) * circ} ${circ}`;
+  $('#welcome-sub').textContent = `${ORG.name} · ${label(ORG.org_type)} · ${ORG.state}${ORG.accreditor ? ` · ${ORG.accreditor}` : ''}`;
+  $('#level-bars').innerHTML = ['federal', 'state', 'accreditation'].map((lv) => {
+    const rs = c.regulations.filter((r) => r.level === lv); if (!rs.length) return '';
+    const pct = Math.round((rs.filter((r) => r.approved_policies).length / rs.length) * 100);
+    return `<div class="bar-row"><span>${esc(label(lv))}</span><div class="bar"><i style="width:${pct}%"></i></div><b>${pct}%</b></div>`;
+  }).join('');
   $('#stat-regs').textContent = c.total;
   $('#reg-list').innerHTML = c.regulations.map((r) => `
     <div class="reg ${r.approved_policies ? 'ok' : ''}">
@@ -122,8 +130,9 @@ async function loadScan() {
     ['Policies missing staff sign-offs', s.policies_missing_signoffs.length]
   ].map(([k, v]) => `<div class="stat"><b>${v}</b><small>${k}</small></div>`).join('') : '';
   $('#scan-updates').innerHTML = updates.length ? updates.map((u) => `
-    <p class="small"><span class="tag">${esc(u.doc_type || '')}</span> <a href="${esc(u.html_url)}" target="_blank" rel="noopener">${esc(u.title)}</a>
-    <span class="muted">${esc((u.agencies || []).join(', '))} · published ${esc(String(u.publication_date || '').slice(0, 10))}${u.effective_on ? ` · effective ${esc(String(u.effective_on).slice(0, 10))}` : ''}</span></p>`).join('')
+    <div class="fr"><span class="tag ${u.doc_type === 'Rule' ? 'lvl-federal' : ''}">${esc(u.doc_type || '')}</span>
+      <div><a href="${esc(u.html_url)}" target="_blank" rel="noopener" title="${esc(u.title)}">${esc(u.title)}</a>
+      <small>${esc((u.agencies || []).slice(-1).join(''))} · ${esc(String(u.publication_date || '').slice(0, 10))}${u.effective_on ? ` · effective ${esc(String(u.effective_on).slice(0, 10))}` : ''}</small></div></div>`).join('')
     : '<p class="muted small">No updates yet. Run the scan to pull the latest Federal Register rules.</p>';
 }
 $('#scan-run').addEventListener('click', async (e) => {
@@ -138,6 +147,10 @@ async function loadPolicies() {
   POLICIES = await api('/api/policies');
   $('#stat-policies').textContent = POLICIES.length;
   $('#stat-review').textContent = POLICIES.filter((p) => p.status === 'in_review').length;
+  const counts = { draft: 0, in_review: 0, approved: 0, retired: 0 };
+  POLICIES.forEach((p) => counts[p.status]++);
+  const max = Math.max(1, ...Object.values(counts));
+  $('#pipeline').innerHTML = Object.entries(counts).map(([k, v]) => `<div class="bar-row"><span>${esc(label(k))}</span><div class="bar st-bar-${k}"><i style="width:${(v / max) * 100}%"></i></div><b>${v}</b></div>`).join('');
   $('#policy-list').innerHTML = POLICIES.length ? POLICIES.map((p) => `
     <button class="policy-item" data-id="${p.id}">
       <b>${esc(p.title)}</b>
@@ -145,7 +158,7 @@ async function loadPolicies() {
       <span class="tag st-${p.status}">${esc(label(p.status))}</span>
       ${p.status === 'approved' ? `<span class="small muted">${p.acknowledgments}/${p.staff_count} staff signed</span>` : ''}
     </button>`).join('') : '<p class="muted">No policies yet.</p>';
-  $$('.policy-item').forEach((b) => b.addEventListener('click', () => openPolicy(b.dataset.id)));
+  $$('#policy-list .policy-item').forEach((b) => b.addEventListener('click', () => openPolicy(b.dataset.id)));
 }
 
 $('#new-policy-btn').addEventListener('click', () => $('#new-policy').classList.toggle('hidden'));
@@ -238,6 +251,62 @@ async function loadTemplates() {
   }));
 }
 
+// ---------- LearnTrack ----------
+async function loadLearn() {
+  const courses = await api('/api/learn/courses');
+  const tot = courses.reduce((a, c) => a + c.staff, 0), done = courses.reduce((a, c) => a + c.completions, 0);
+  $('#stat-training').textContent = tot ? `${Math.round((done / tot) * 100)}%` : '0%';
+  const approved = POLICIES.filter((p) => p.status === 'approved');
+  $('#course-policy').innerHTML = approved.length ? approved.map((p) => `<option value="${p.id}">${esc(p.title)} (v${p.current_version})</option>`).join('') : '<option value="">Approve a policy first</option>';
+  $('#course-list').innerHTML = courses.length ? courses.map((c) => `
+    <button class="policy-item" data-id="${c.id}"><b>${esc(c.title)}</b>
+      <span class="small muted">${c.question_count ? `${c.question_count}-question quiz` : 'Read and attest'} · due ${esc(String(c.due_date).slice(0, 10))}</span>
+      <span class="tag ${c.certificate_id ? 'st-approved' : 'st-in_review'}">${c.certificate_id ? `Completed ${c.cert_score}%` : c.best_score != null ? `Best ${c.best_score}%, retake` : 'Not started'}</span>
+      ${isEditor() ? `<span class="small muted">${c.completions}/${c.staff} staff completed</span>` : ''}</button>`).join('') : '<p class="muted">No courses yet.</p>';
+  $$('#course-list .policy-item').forEach((b) => b.addEventListener('click', () => openCourse(b.dataset.id)));
+  if (isEditor()) {
+    const rep = await api('/api/learn/report');
+    $('#learn-report').innerHTML = rep.map((r) => `<tr><td>${esc(r.full_name)}</td><td>${esc(label(r.role))}</td><td>${esc(r.title)}</td>
+      <td>${r.certificate ? `<span class="good">Completed ${r.score}%</span>` : (new Date(r.due_date) < new Date() ? '<span class="bad-text">Overdue</span>' : '<span class="warn">Pending</span>')}</td><td>${esc(String(r.due_date).slice(0, 10))}</td></tr>`).join('');
+  }
+}
+$('#course-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!$('#course-policy').value) return;
+  show($('#learn-msg'), 'Building the course with F4 Intelligence...');
+  try {
+    const r = await api('/api/learn/courses', { method: 'POST', body: { policy_id: +$('#course-policy').value } });
+    show($('#learn-msg'), r.source === 'ai' ? `Course created with a ${r.questions}-question quiz.` : 'AI is not connected, so a read-and-attest course was created. Connect AI to add quizzes.', 'ok');
+    loadLearn(); openCourse(r.id);
+  } catch (err) { show($('#learn-msg'), err.message, 'bad'); }
+});
+async function openCourse(id) {
+  const c = await api(`/api/learn/courses/${id}`);
+  const el = $('#course-detail'); el.classList.remove('hidden');
+  el.innerHTML = `<h2>${esc(c.title)}</h2>
+    <h3>Learning objectives</h3><ul>${c.objectives.map((o) => `<li>${esc(o)}</li>`).join('')}</ul>
+    <h3>Key points</h3><ul>${c.key_points.map((o) => `<li>${esc(o)}</li>`).join('')}</ul>
+    ${c.scenario ? `<h3>Clinical scenario</h3><p>${esc(c.scenario.situation)}</p>` : ''}
+    <details><summary>Read the full policy</summary><pre class="output">${esc(c.reading || '')}</pre></details>
+    <form id="quiz">${c.questions.length ? c.questions.map((q, i) => `
+      <fieldset class="q"><legend>${i + 1}. ${esc(q.question)}</legend>${q.options.map((o, j) => `
+        <label class="check opt"><input type="radio" name="q${i}" value="${j}" required> ${esc(o)}</label>`).join('')}<div class="fb small"></div></fieldset>`).join('')
+      : '<label class="check"><input type="checkbox" id="attest" required> I have read and understand this policy.</label>'}
+      <button class="primary">Submit</button><div id="quiz-msg" class="notice hidden"></div></form>`;
+  $('#quiz', el).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const answers = c.questions.map((_, i) => +new FormData(e.target).get(`q${i}`));
+    try {
+      const r = await api(`/api/learn/courses/${id}/attempt`, { method: 'POST', body: c.questions.length ? { answers } : { attest: true } });
+      $$('.q', el).forEach((fs, i) => { const f = r.feedback[i]; if (!f) return;
+        $('.fb', fs).innerHTML = `<span class="${f.correct ? 'good' : 'bad-text'}">${f.correct ? 'Correct.' : `Incorrect. Answer: ${esc(c.questions[i].options[f.answer])}.`}</span> ${esc(f.rationale || '')}`; });
+      show($('#quiz-msg', el), r.passed ? `Passed with ${r.score}%. ` : `Score ${r.score}%. You need ${r.pass_score}% to pass. Review and try again.`, r.passed ? 'ok' : 'bad');
+      if (r.certificate) $('#quiz-msg', el).insertAdjacentHTML('beforeend', `<a href="/api/learn/certificates/${r.certificate}" target="_blank">Open your certificate</a>`);
+      loadLearn(); loadPolicies();
+    } catch (err) { show($('#quiz-msg', el), err.message, 'bad'); }
+  });
+}
+
 // ---------- Agents ----------
 let currentAgent = null;
 async function loadAgents() {
@@ -308,6 +377,17 @@ $('#add-user').addEventListener('submit', async (e) => {
     await api('/api/users', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) });
     e.target.reset(); show($('#team-msg'), 'Team member added. Share their temporary password privately.', 'ok'); loadTeam();
   } catch (err) { show($('#team-msg'), err.message, 'bad'); }
+});
+
+// ---------- Activity feed ----------
+async function loadActivity() {
+  const rows = await api('/api/audit?limit=8');
+  $('#activity').innerHTML = rows.map((r) => `<div class="act"><i></i><div><b>${esc(label(r.action.replace('.', ' ')))}</b><small>${esc(r.user_name || 'system')} · ${when(r.created_at)}</small></div></div>`).join('') || '<p class="muted small">No activity yet.</p>';
+}
+$('#side-search').addEventListener('input', (e) => {
+  const t = e.target.value.toLowerCase();
+  if (t) $('[data-view="policies"]').click();
+  $$('#policy-list .policy-item').forEach((b) => b.classList.toggle('hidden', t && !b.textContent.toLowerCase().includes(t)));
 });
 
 // ---------- Audit ----------

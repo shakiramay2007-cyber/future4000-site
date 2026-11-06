@@ -8,6 +8,7 @@ import { migrate, dbConfigured } from './src/db.js';
 import { loadUser } from './src/auth.js';
 import { router, handleStripeEvent } from './src/routes.js';
 import { storageProvider } from './src/cloud.js';
+import { learnRouter } from './src/learn.js';
 import { listIntegrations, testIntegration } from './src/integrations.js';
 import { PLANS } from './src/plans.js';
 
@@ -40,7 +41,8 @@ app.use((_req, res, next) => {
 });
 app.use(express.json({ limit: '1mb' }));
 app.use(loadUser);
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'home.html')));
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
@@ -54,6 +56,7 @@ app.get('/api/status', (_req, res) => res.json({
 }));
 
 app.use('/api', router);
+app.use('/api/learn', learnRouter);
 
 // Agents
 app.get('/api/agents', (_req, res) => res.json(AGENTS.map(({ prompt, ...a }) => a)));

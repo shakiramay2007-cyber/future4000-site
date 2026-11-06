@@ -351,7 +351,7 @@ router.post('/billing/subscribe', requireRole('admin'), wrap(async (req, res) =>
     line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: plan.amount, recurring: { interval: 'month' }, product_data: { name: `FUTURE4000 ${plan.name}` } } }],
     metadata: { org_id: String(org.id), plan: planId },
     subscription_data: { metadata: { org_id: String(org.id), plan: planId } },
-    return_url: `${origin}/?billing=done&session_id={CHECKOUT_SESSION_ID}`
+    return_url: `${origin}/app?billing=done&session_id={CHECKOUT_SESSION_ID}`
   });
   await audit(req, 'billing.checkout_started', 'organization', org.id, { plan: planId });
   res.json({ clientSecret: session.client_secret });
@@ -361,7 +361,7 @@ router.post('/billing/portal', requireRole('admin'), wrap(async (req, res) => {
   if (!stripe) throw bad('Stripe is not connected yet.', 503);
   const org = (await q('SELECT stripe_customer_id FROM organizations WHERE id=$1', [req.user.org_id])).rows[0];
   if (!org.stripe_customer_id) throw bad('No billing account yet. Choose a plan first.', 404);
-  const session = await stripe.billingPortal.sessions.create({ customer: org.stripe_customer_id, return_url: `${req.protocol}://${req.get('host')}/` });
+  const session = await stripe.billingPortal.sessions.create({ customer: org.stripe_customer_id, return_url: `${req.protocol}://${req.get('host')}/app` });
   res.json({ url: session.url });
 }));
 

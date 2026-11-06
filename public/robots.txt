@@ -1,0 +1,25 @@
+# FUTURE4000: public marketing pages are open to search and AI answer engines.
+# The application (/app) and API (/api) are private and not for indexing.
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /api/
+
+User-agent: Googlebot
+Allow: /
+User-agent: Bingbot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Claude-SearchBot
+Allow: /
+User-agent: Claude-User
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Perplexity-User
+Allow: /
