@@ -193,3 +193,9 @@ details summary { cursor: pointer; color: var(--teal-2); font-weight: 600; margi
 @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, 1fr); } .dash-grid { grid-template-columns: 1fr; } }
 @media (max-width: 800px) { .shell { grid-template-columns: 1fr; } .tabs.side { position: static; height: auto; flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); } .side-search { display: none; } }
 .dash-grid { align-items: start; }
+.studio { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.studio .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.studio input[type=color] { height: 42px; padding: 4px; }
+#studio-out { min-height: 420px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+@media (max-width: 1000px) { .studio { grid-template-columns: 1fr; } }
+.studio .check { text-transform: none; }

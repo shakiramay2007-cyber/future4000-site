@@ -41,6 +41,7 @@
       <button class="tab" data-view="templates">F4 Templates</button>
       <button class="tab" data-view="learn">LearnTrack</button>
       <button class="tab" data-view="agents">AI Agents</button>
+      <button class="tab" data-view="studio">F4 Studio</button>
       <button class="tab" data-view="integrations">F4 Connect</button>
       <button class="tab admin-only" data-view="team">Team</button>
       <button class="tab admin-only" data-view="audit">Audit Log</button>
@@ -147,6 +148,49 @@
             <div id="agent-phi" class="notice hidden"></div>
             <pre id="agent-output" class="output hidden"></pre>
             <p id="agent-model" class="muted small"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- F4 Studio: video prompt builder -->
+      <section id="studio" class="view">
+        <h1>F4 Studio</h1>
+        <p class="lead">Build precise editing prompts for Claude-powered video editors such as Cardboard or CapCut. Made for training videos: every prompt includes a privacy rule, and finished videos attach to LearnTrack.</p>
+        <div class="studio">
+          <form id="studio-form" class="panel">
+            <label>What is this video? <select name="kind">
+              <option value="training">Staff training module</option><option value="policy">Policy update announcement</option>
+              <option value="onboarding">New-hire onboarding</option><option value="leadership">Leadership / board briefing</option>
+              <option value="marketing">FUTURE4000 marketing clip</option><option value="podcast">Podcast or webinar recording</option></select></label>
+            <label>Topic <input name="topic" placeholder="Hand hygiene: the five moments" /></label>
+            <label>Main job <select name="task">
+              <option value="clean">Clean up: cut ums, dead air and retakes</option><option value="highlights">Find the 3 best moments and make short clips</option>
+              <option value="reframe">Reframe for vertical (Reels, Shorts, TikTok)</option><option value="split">Triple split: slides + speaker + captions</option>
+              <option value="chapters">Chapter it into training segments</option></select></label>
+            <div class="two">
+              <label>Output shape <select name="aspect"><option value="16:9">16:9 widescreen (LMS, YouTube)</option><option value="9:16">9:16 vertical</option><option value="1:1">1:1 square</option><option value="4:5">4:5 feed</option></select></label>
+              <label>Pacing <select name="pace"><option value="calm">Calm: keep natural pauses (clinical teaching)</option><option value="natural" selected>Natural: trim pauses over 0.6 s</option><option value="fast">Fast: trim pauses over 0.25 s</option><option value="max">Maximum: trim pauses over 0.15 s</option></select></label>
+            </div>
+            <div class="two">
+              <label>Captions <select name="captions"><option value="word">Word-by-word, large and bold</option><option value="line">Full lines, two rows max</option><option value="none">No burned-in captions (separate SRT only)</option></select></label>
+              <label>Length target <select name="length"><option value="">Keep the length it needs</option><option value="60">Under 60 seconds</option><option value="180">Under 3 minutes</option><option value="600">Under 10 minutes</option></select></label>
+            </div>
+            <div class="two">
+              <label>Brand primary color <input name="c1" type="color" value="#0a1f3c" /></label>
+              <label>Brand accent color <input name="c2" type="color" value="#0fb5a6" /></label>
+            </div>
+            <fieldset><legend>Add-ons</legend><div class="checks">
+              <label class="check"><input type="checkbox" name="title" checked> Animated title card</label>
+              <label class="check"><input type="checkbox" name="lower" checked> Speaker name and credentials lower-third</label>
+              <label class="check"><input type="checkbox" name="broll"> Matching B-roll for the middle section</label>
+              <label class="check"><input type="checkbox" name="quiz" checked> End card pointing to the LearnTrack quiz</label>
+              <label class="check"><input type="checkbox" name="srt" checked> Export an SRT caption file (accessibility)</label>
+            </div></fieldset>
+          </form>
+          <div class="panel">
+            <div class="row-between"><h2>Your prompt</h2><button class="primary" id="studio-copy" type="button">Copy prompt</button></div>
+            <pre id="studio-out" class="output"></pre>
+            <p class="small muted">Paste it into your editor's chat panel. Review the editor's plan before it makes changes.</p>
           </div>
         </div>
       </section>

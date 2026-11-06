@@ -424,4 +424,47 @@ $('#portal-btn').addEventListener('click', async () => {
   try { location.href = (await api('/api/billing/portal', { method: 'POST' })).url; } catch (e) { show($('#billing-msg'), e.message, 'bad'); }
 });
 
+// ---------- F4 Studio prompt builder ----------
+function buildStudioPrompt() {
+  const f = Object.fromEntries(new FormData($('#studio-form')));
+  const on = (k) => $(`#studio-form [name=${k}]`).checked;
+  const kinds = { training: 'a staff training module for a healthcare organization', policy: 'a policy update announcement for hospital staff', onboarding: 'a new-hire onboarding video', leadership: 'a leadership and board briefing', marketing: 'a short marketing clip for FUTURE4000, a healthcare compliance platform', podcast: 'a recorded podcast or webinar' };
+  const tasks = {
+    clean: 'Clean up the recording: remove filler words (um, uh, like), false starts, repeated takes and dead air. Keep the speaker\'s pacing natural and never change pitch.',
+    highlights: 'Find the 3 strongest moments (clear teaching points, strong statements, practical tips) and turn each into its own standalone clip with a clean start and end.',
+    reframe: 'Reframe the video and keep the active speaker centered and in focus at all times, including when they move.',
+    split: 'Build a stacked layout: top 40% shows the presentation slides scaled to fit; middle 35% is a centered crop that tracks the active speaker; bottom 25% is a solid brand-color panel reserved for captions.',
+    chapters: 'Split the video into clearly titled chapters, one per learning objective, with a 1-second title slate before each chapter.'
+  };
+  const pace = { calm: 'Keep natural pauses; only remove silences longer than 1.2 seconds, because learners need time to absorb clinical content.', natural: 'Remove silences longer than 0.6 seconds.', fast: 'Remove silences longer than 0.25 seconds and use hard cuts.', max: 'Remove every silence longer than 0.15 seconds and use hard cuts for maximum pace.' };
+  const caps = { word: `Burn in word-by-word captions: large bold sans-serif, white text with the current word highlighted in ${f.c2}, placed in the lower third, readable on a phone.`, line: `Burn in captions as full lines, maximum two rows, white text on a ${f.c1} band at 80% opacity.`, none: 'Do not burn captions into the video.' };
+  const lines = [
+    `You are editing ${kinds[f.kind]}${f.topic ? ` about "${f.topic}"` : ''}.`,
+    '',
+    `1. MAIN TASK: ${tasks[f.task]}`,
+    `2. FORMAT: Final output is ${f.aspect}.${f.aspect !== '16:9' && f.task !== 'split' ? ' Reframe so the speaker and any on-screen text stay fully inside the frame.' : ''}`,
+    `3. PACING: ${pace[f.pace]}`,
+    `4. CAPTIONS: ${caps[f.captions]}${on('srt') ? ' Also export a matching .srt caption file.' : ''}`,
+    f.length ? `5. LENGTH: Keep the final cut under ${f.length >= 60 ? `${f.length / 60} minute${f.length > 60 ? 's' : ''}` : `${f.length} seconds`}. Cut the least important material first, never the safety steps.` : '5. LENGTH: Keep whatever length the content needs; do not cut required steps.',
+    `6. BRAND: Use ${f.c1} as the primary color and ${f.c2} as the accent for titles, bars and highlights.`,
+    on('title') ? `7. TITLE CARD: Add a 2-second animated title card at the start${f.topic ? ` reading "${f.topic}"` : ''}.` : null,
+    on('lower') ? '8. LOWER-THIRD: When each speaker first appears, show their name and credentials (I will confirm names before export).' : null,
+    on('broll') ? '9. B-ROLL: Add B-roll that matches what is being said in the middle section. Use only generic stock footage.' : null,
+    on('quiz') ? '10. END CARD: Finish with a 4-second end card: "Complete your LearnTrack quiz to earn your certificate."' : null,
+    '',
+    'PRIVACY RULES (always apply):',
+    '- Never show patient faces, names, wristbands, charts, screens with patient data, or room numbers. If any appear, cut or blur them and list the timestamps for me.',
+    '- Do not invent clinical facts or change what the speaker says.',
+    '',
+    'Before editing, show me your plan with timestamps. Make changes only after I approve, and keep every change undoable.'
+  ].filter((l) => l !== null);
+  $('#studio-out').textContent = lines.join('\n');
+}
+$('#studio-form').addEventListener('input', buildStudioPrompt);
+$('#studio-form').addEventListener('change', buildStudioPrompt);
+$('#studio-copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('#studio-out').textContent); $('#studio-copy').textContent = 'Copied'; setTimeout(() => ($('#studio-copy').textContent = 'Copy prompt'), 1500); } catch { /* clipboard blocked */ }
+});
+buildStudioPrompt();
+
 boot();
