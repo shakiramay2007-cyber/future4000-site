@@ -5,12 +5,15 @@ import { LEARN_SCHEMA } from './learn.js';
 import { GOV_SCHEMA } from './governance.js';
 import { JOBS_SCHEMA } from './jobs.js';
 import { PAY_SCHEMA } from './pay.js';
+import { CONNECT_SCHEMA } from './connect.js';
 
 const { Pool } = pg;
 
-// Connects with DATABASE_URL (Supabase or local) or PGHOST/PGUSER/PGPASSWORD/PGDATABASE (AWS RDS via Secrets Manager).
+// Connects with DATABASE_URL (Supabase or local) or PGHOST/PGUSER/PGPASSWORD/PGDATABASE (AWS RDS or Google Cloud SQL).
 const local = (process.env.DATABASE_URL || process.env.PGHOST || '').includes('localhost');
-const ssl = process.env.DATABASE_SSL === 'false' || local ? false : { rejectUnauthorized: false };
+// Google Cloud SQL through Cloud Run uses a private Unix socket (/cloudsql/...), which needs no TLS.
+const cloudSqlSocket = (process.env.PGHOST || '').startsWith('/cloudsql/');
+const ssl = process.env.DATABASE_SSL === 'false' || local || cloudSqlSocket ? false : { rejectUnauthorized: false };
 export const pool = process.env.DATABASE_URL
   ? new Pool({ connectionString: process.env.DATABASE_URL, ssl })
   : process.env.PGHOST ? new Pool({ ssl }) : null;
@@ -159,6 +162,7 @@ export async function migrate() {
   await q(GOV_SCHEMA);
   await q(JOBS_SCHEMA);
   await q(PAY_SCHEMA);
+  await q(CONNECT_SCHEMA);
   for (const r of REGULATION_SEED) {
     await q(
       `INSERT INTO regulations (code, title, level, authority, state, applies_to_types, applies_to_services, summary, required_policies)

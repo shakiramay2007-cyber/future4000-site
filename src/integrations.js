@@ -2,7 +2,7 @@
 // Every connector has a FUTURE4000 brand name, the system it connects to, the weaknesses of that
 // system it fixes, and the credentials it needs. "Connected" is shown only when a live test passes.
 import Stripe from 'stripe';
-import { testS3, testSupabase } from './cloud.js';
+import { testS3, testSupabase, testVertex } from './cloud.js';
 import { PROVIDERS } from './ai.js';
 
 const has = (...keys) => keys.every((k) => Boolean(process.env[k]));
@@ -66,8 +66,8 @@ export const INTEGRATIONS = [
   { id: 'google-cloud', brand: 'F4 Intelligence Backup', connects: 'Google Cloud Vertex AI', category: 'Cloud & AI', hipaa: true, priority: 2,
     fixes: ['Single AI provider is a single point of failure'],
     upgrade: 'Automatic failover to Claude on Vertex AI if Bedrock is unavailable.',
-    env: ['GOOGLE_CLOUD_PROJECT', 'GOOGLE_APPLICATION_CREDENTIALS_JSON'], setup: 'Enable Claude in Vertex AI Model Garden, create a service account with Vertex AI User role, paste its JSON key. Sign the Google Cloud BAA.',
-    test: async () => { if (!PROVIDERS.vertex.ready()) throw new Error('Vertex credentials incomplete'); JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON); return 'Vertex credentials valid JSON; first agent run confirms access'; } },
+    env: ['GOOGLE_CLOUD_PROJECT'], setup: '1 Copy your project ID. 2 Turn on billing and the Vertex AI API. 3 Model Garden: enable the Claude models (needs the Consumer Procurement Entitlement Manager role). Set GOOGLE_CLOUD_REGION to global. 4 Service account with the Vertex AI User role. 5 On Cloud Run nothing else is needed; elsewhere add its JSON key as GOOGLE_APPLICATION_CREDENTIALS_JSON in your secret store. 6 Accept the Google Cloud BAA before any patient data.',
+    test: testVertex },
   { id: 'supabase', brand: 'F4 Vault (Supabase)', connects: 'Supabase Postgres + Storage', category: 'Cloud & AI', hipaa: true, priority: 2,
     fixes: ['Row security easy to leave off', 'HIPAA only on higher plans'],
     upgrade: 'Use Supabase Postgres as the FUTURE4000 database (set DATABASE_URL) and Supabase Storage as the document archive.',
@@ -88,8 +88,43 @@ export const INTEGRATIONS = [
     upgrade: 'Use Replit for prototyping with test data only; promote code to this GitHub repo for production on HIPAA hosting.',
     env: ['REPLIT_PROJECT_URL'], setup: 'Paste your Replit project URL. Replit has no BAA, so keep real patient data out.' },
 
+  // ---------------- Google apps ----------------
+  { id: 'google-play', brand: 'Payment Time for Apps', connects: 'Google Play', category: 'Google', hipaa: false, priority: 1,
+    fixes: ['App subscriptions sold through Play billing carry Google service fees', 'Publishing, testing tracks and reviews are confusing', 'Subscription status lives apart from the rest of the business'],
+    upgrade: 'Publish and track your Android app from one place. Use Play only for app subscriptions; patient bills always go through Payment Time at card rates.',
+    env: ['GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', 'GOOGLE_PLAY_PACKAGE_NAME'],
+    setup: 'Play Console (one-time developer registration) → Users and permissions → invite a Google Cloud service account with the least access needed. Keep the key in Secret Manager, never in email or chat.' },
+  { id: 'google-pay', brand: 'Payment Time Wallet Button', connects: 'Google Pay', category: 'Google', hipaa: false, priority: 2,
+    fixes: ['Typing card numbers on a phone is slow', 'Checkout abandonment on mobile'],
+    upgrade: 'One-tap Google Pay on Payment Time checkout pages, turned on inside the processor you already connected.',
+    env: [], setup: 'Turn on Google Pay in your connected processor (Stripe, Square or PayPal/Braintree). Card rates of your processor apply.' },
+  { id: 'google-wallet', brand: 'F4 Wallet Passes', connects: 'Google Wallet', category: 'Google', hipaa: false, priority: 3,
+    fixes: ['Paper membership, campus and appointment cards get lost'],
+    upgrade: 'Digital passes for campus IDs, event check-in and appointment cards. Health insurance details only with patient consent and a privacy review.',
+    env: ['GOOGLE_WALLET_ISSUER_ID', 'GOOGLE_WALLET_SERVICE_ACCOUNT_JSON'], setup: 'Apply for a Google Wallet issuer account in the Google Pay & Wallet Console, then add a service account.' },
+  { id: 'firebase', brand: 'F4 Mobile', connects: 'Firebase', category: 'Google', hipaa: false, priority: 2,
+    fixes: ['Mobile sign-in and notifications built from scratch', 'Notifications can leak patient details on lock screens'],
+    upgrade: 'App sign-in and push notifications with a rule that notifications never contain patient details ("You have a new message").',
+    env: ['FIREBASE_PROJECT_ID'], setup: 'Check which Firebase services Google lists as covered by its business associate agreement before any patient data is involved.' },
+  { id: 'google-maps', brand: 'F4 Locations', connects: 'Google Maps Platform', category: 'Google', hipaa: false, priority: 3,
+    fixes: ['Patients cannot find the right clinic entrance or location'],
+    upgrade: 'Clinic and campus locator with directions, hours and accessibility notes. No patient data is ever sent to Maps.',
+    env: ['GOOGLE_MAPS_API_KEY'], setup: 'Create an API key in Google Cloud and restrict it to your website domain and the Maps APIs you use.' },
+  { id: 'google-analytics', brand: 'F4 Insights', connects: 'Google Analytics', category: 'Google', hipaa: false, priority: 3,
+    fixes: ['Tracking code on patient pages can disclose health information'],
+    upgrade: 'Analytics allowed on public marketing pages only; blocked automatically on sign-in, portal and payment pages.',
+    env: ['GA_MEASUREMENT_ID'], setup: 'Follow HHS guidance on online tracking technologies: never place tracking on pages where patients sign in or enter health details.' },
+  { id: 'google-business', brand: 'F4 Reputation', connects: 'Google Business Profile', category: 'Google', hipaa: false, priority: 3,
+    fixes: ['Replying to reviews can accidentally confirm someone is a patient'],
+    upgrade: 'Review replies drafted by AI with a privacy check that never confirms a reviewer is a patient; hours and locations kept current.',
+    env: ['GOOGLE_BUSINESS_ACCOUNT_ID'], setup: 'Connect with the Google account that manages your Business Profile; replies need human approval.' },
+  { id: 'health-connect', brand: 'F4 Patient Devices', connects: 'Health Connect (Android)', category: 'Google', hipaa: true, priority: 3,
+    fixes: ['Patient device data (steps, heart rate, sleep) is scattered across apps'],
+    upgrade: 'With the patient\'s permission, the mobile app reads only the data types a care plan needs, with every read logged.',
+    env: [], setup: 'Built into the mobile app: Android asks the patient for permission per data type. Requires your app\'s privacy policy and Play Console health declarations.' },
+
   // ---------------- Business ----------------
-  { id: 'stripe', brand: 'F4 Pay', connects: 'Stripe', category: 'Business', hipaa: false, priority: 1,
+  { id: 'stripe', brand: 'Payment Time', connects: 'Stripe', category: 'Business', hipaa: false, priority: 1,
     fixes: ['Not built for healthcare billing', 'No BAA for patient data'],
     upgrade: 'Organization-level subscriptions with automatic plan activation. Never stores patient data.',
     env: ['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY'],

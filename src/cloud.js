@@ -53,18 +53,21 @@ export async function testSupabase() {
 }
 
 // ---------- Google Cloud Vertex AI (Claude backup route) ----------
-export const vertexReady = () => Boolean(process.env.GOOGLE_CLOUD_PROJECT && process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+// On Google Cloud (Cloud Run sets K_SERVICE) the app signs in as its attached service account: no key file needed.
+const onGoogleCloud = () => Boolean(process.env.K_SERVICE || process.env.GOOGLE_USE_DEFAULT_CREDENTIALS === 'true' || process.env.GOOGLE_APPLICATION_CREDENTIALS);
+export const vertexReady = () => Boolean(process.env.GOOGLE_CLOUD_PROJECT && (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || onGoogleCloud()));
 
 let vertexClient;
 async function vertex() {
   if (vertexClient) return vertexClient;
   const { AnthropicVertex } = await import('@anthropic-ai/vertex-sdk');
   const { GoogleAuth } = await import('google-auth-library');
-  const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+  const json = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  const credentials = json ? JSON.parse(json) : undefined;
   vertexClient = new AnthropicVertex({
     projectId: process.env.GOOGLE_CLOUD_PROJECT,
-    region: process.env.GOOGLE_CLOUD_REGION || 'us-east5',
-    googleAuth: new GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/cloud-platform'] })
+    region: process.env.GOOGLE_CLOUD_REGION || 'global', // newer Claude models on Vertex need global, us or eu
+    googleAuth: new GoogleAuth({ ...(credentials ? { credentials } : {}), scopes: ['https://www.googleapis.com/auth/cloud-platform'] })
   });
   return vertexClient;
 }
@@ -83,4 +86,29 @@ export async function runOnVertex(tier, system, userText) {
     messages: [{ role: 'user', content: scrubPHI(userText).clean }]
   });
   return { text: msg.content.map((c) => c.text || '').join(''), model: `vertex:${model}`, usage: msg.usage };
+}
+
+// Live Vertex check with a tiny request, translating common Google errors into plain steps.
+export async function testVertex() {
+  if (!process.env.GOOGLE_CLOUD_PROJECT) throw new Error('Set GOOGLE_CLOUD_PROJECT to your project ID (the ID, not the display name; it is shown in the project picker).');
+  const json = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  if (json) {
+    let c; try { c = JSON.parse(json); } catch { throw new Error('GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Paste the whole downloaded key file.'); }
+    if (c.type !== 'service_account') throw new Error('That JSON is not a service account key. Create one under IAM → Service accounts → Keys.');
+    if (c.project_id && c.project_id !== process.env.GOOGLE_CLOUD_PROJECT) throw new Error(`The key belongs to project "${c.project_id}" but GOOGLE_CLOUD_PROJECT is "${process.env.GOOGLE_CLOUD_PROJECT}". Use the same project.`);
+  } else if (!onGoogleCloud()) throw new Error('Add GOOGLE_APPLICATION_CREDENTIALS_JSON, or run the app on Google Cloud Run where it signs in automatically.');
+  try {
+    const client = await vertex();
+    await client.messages.create({ model: VERTEX_MODELS.fast, max_tokens: 5, messages: [{ role: 'user', content: 'Reply OK' }] });
+    return `Vertex AI answered from ${process.env.GOOGLE_CLOUD_REGION || 'global'} using ${VERTEX_MODELS.fast}`;
+  } catch (e) {
+    vertexClient = null;
+    const m = String(e.message || e);
+    if (/PERMISSION_DENIED|403/.test(m)) throw new Error('Permission denied: give the service account the "Vertex AI User" role and turn on the Vertex AI API. Enabling Claude in Model Garden also needs a person with the "Consumer Procurement Entitlement Manager" role.');
+    if (/NOT_FOUND|404/.test(m)) throw new Error(`Model not found: open Vertex AI → Model Garden, enable the Claude models, and use region "global" for current Claude models (currently set: ${process.env.GOOGLE_CLOUD_REGION || 'global'}).`);
+    if (/invalid_grant|unauthorized_client|401/.test(m)) throw new Error('Google rejected the key: it may be deleted or disabled. Create a new key for the service account.');
+    if (/RESOURCE_EXHAUSTED|429/.test(m)) throw new Error('Vertex quota reached: request a quota increase for Claude models in this region.');
+    if (/billing/i.test(m)) throw new Error('Billing is not enabled on this Google Cloud project.');
+    throw new Error(`Vertex AI error: ${m.slice(0, 300)}`);
+  }
 }

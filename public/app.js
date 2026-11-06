@@ -60,7 +60,7 @@ function startApp() {
   $$('.editor-only').forEach((el) => el.classList.toggle('hidden', !isEditor()));
   if (!isAdmin()) $('[data-view="billing"]').classList.add('hidden');
   loadDashboard(); loadPolicies().then(loadLearn); loadTemplates(); loadAgents(); loadIntegrations();
-  if (isEditor()) { loadTeam(); loadAudit(); loadActivity(); loadGovernance(); }
+  if (isEditor()) { loadTeam(); loadAudit(); loadActivity(); loadGovernance(); initPayments(); loadPayments().catch((e) => show($('#pt-msg'), e.message, 'bad')); }
   if (isAdmin()) loadBilling();
   if (new URLSearchParams(location.search).get('billing') === 'done') {
     $('[data-view="billing"]').click();
@@ -388,13 +388,24 @@ function renderInts(cat) {
     <div class="card" data-id="${i.id}">
       <h3>${esc(i.brand)}</h3><p class="small"><b>Connects to:</b> ${esc(i.connects)}</p>
       <div class="tags"><span class="tag">${esc(i.category)}</span>${i.hipaa ? '<span class="tag hipaa">HIPAA-capable</span>' : '<span class="tag">No PHI</span>'}
-        <span class="tag ${i.credentialsSet ? 'connected' : 'needs'}">${i.credentialsSet ? 'Credentials set' : 'Needs credentials'}</span></div>
+        ${i.env.length ? `<span class="tag ${i.credentialsSet ? 'connected' : 'needs'}">${i.credentialsSet ? 'Credentials set' : 'Needs credentials'}</span>` : '<span class="tag">No keys needed</span>'}</div>
       <p><b>Fixes:</b> ${i.fixes.map(esc).join('; ')}</p>
       <p><b>F4 upgrade:</b> ${esc(i.upgrade)}</p>
       ${i.setup ? `<p class="small"><b>Setup:</b> ${esc(i.setup)}</p>` : ''}
-      <button>Test connection</button><div class="result small"></div>
+      <div class="row-between"><button data-act="test">Test connection</button>${isAdmin() ? '<button data-act="managed" class="primary">Request managed setup</button>' : ''}</div>
+      <p class="small muted">Managed setup: the FUTURE4000 team connects it for you behind the scenes (paid service).</p>
+      <div class="result small"></div>
     </div>`).join('');
-  $$('#integration-grid .card button').forEach((b) => b.addEventListener('click', async () => {
+  $$('#integration-grid .card button[data-act="managed"]').forEach((b) => b.addEventListener('click', async () => {
+    const card = b.closest('.card'), res = $('.result', card);
+    const notes = prompt('Anything the FUTURE4000 team should know? (Never include patient information.)', '') ?? null;
+    if (notes === null) return;
+    try {
+      await api('/api/connect/requests', { method: 'POST', body: { systemId: card.dataset.id, notes } });
+      res.innerHTML = '<span class="good">Managed setup requested. The FUTURE4000 team will contact you to schedule it.</span>';
+    } catch (e) { res.textContent = e.message; }
+  }));
+  $$('#integration-grid .card button[data-act="test"]').forEach((b) => b.addEventListener('click', async () => {
     const card = b.closest('.card'), res = $('.result', card);
     res.textContent = 'Testing...';
     try {
@@ -470,6 +481,42 @@ async function connectPay() {
     await renderPayConnections();
   } catch (e) { show($('#pay-msg'), e.message, 'bad'); }
   finally { btn.disabled = false; btn.textContent = 'Connect and test'; }
+}
+
+// ---------- Payment Time ----------
+async function loadPayments() {
+  const d = await api('/api/pay/payments');
+  $('#pt-paid').textContent = money(d.totals.paidCents);
+  $('#pt-open').textContent = money(d.totals.openCents);
+  $('#pt-fee').textContent = money(d.totals.serviceFeeCents);
+  $('#pt-fee-label').textContent = `FUTURE4000 service fee (${(d.totals.serviceFeeBps / 100).toFixed(2)}%)`;
+  const cls = { paid: 'st-approved', open: 'st-in_review', canceled: '', expired: '', failed: 'st-draft' };
+  $('#pt-rows').innerHTML = d.payments.length ? d.payments.map((p) => `<tr data-id="${p.id}">
+    <td>${esc(p.reference)}</td><td>${esc(p.description)}</td><td>${money(p.amountCents)}</td>
+    <td><span class="tag ${cls[p.status] || ''}">${esc(p.status)}</span>${p.mode === 'test' ? ' <span class="tag">test</span>' : ''}</td>
+    <td>${esc(p.providerName)}</td><td class="small">${when(p.createdAt)}</td>
+    <td>${p.payUrl ? `<button data-act="copy" data-url="${esc(p.payUrl)}">Copy link</button> <button data-act="cancel">Cancel</button>` : ''}</td></tr>`).join('')
+    : '<tr><td colspan="7" class="muted">No payment requests yet.</td></tr>';
+  $$('#pt-rows button').forEach((b) => b.addEventListener('click', async () => {
+    try {
+      if (b.dataset.act === 'copy') { await navigator.clipboard.writeText(b.dataset.url); show($('#pt-msg'), 'Payment link copied. Send it to the payer by your usual secure channel.', 'ok'); return; }
+      if (!confirm('Cancel this payment request? The link will stop working.')) return;
+      await api(`/api/pay/payments/${b.closest('tr').dataset.id}/cancel`, { method: 'POST' });
+      show($('#pt-msg'), 'Payment request canceled.', 'ok'); loadPayments();
+    } catch (e) { show($('#pt-msg'), e.message, 'bad'); }
+  }));
+}
+function initPayments() {
+  $('#pt-reload').onclick = () => loadPayments().catch((e) => show($('#pt-msg'), e.message, 'bad'));
+  $('#pt-create').onclick = async () => {
+    const btn = $('#pt-create'); btn.disabled = true;
+    try {
+      const p = await api('/api/pay/payments', { method: 'POST', body: { amount: $('#pt-amount').value, description: $('#pt-desc').value, reference: $('#pt-ref').value } });
+      show($('#pt-msg'), `Payment link ready for ${money(p.amountCents)} (${p.reference}). Use "Copy link" to send it.`, 'ok');
+      ['#pt-amount', '#pt-desc', '#pt-ref'].forEach((s) => { $(s).value = ''; });
+      loadPayments();
+    } catch (e) { show($('#pt-msg'), e.message, 'bad'); } finally { btn.disabled = false; }
+  };
 }
 
 // ---------- Team ----------

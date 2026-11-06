@@ -110,6 +110,14 @@ export const AGENTS = [
     prompt: 'From the attached minutes, list: Decisions made; Action items as a table (Action | Owner | Due date | Related regulation or standard, if clear | Page); items carried over from prior meetings; and anything a surveyor would expect to see followed up. Write "not assigned" or "no date" where the minutes are silent.'
   },
   {
+    id: 'connection-setup',
+    name: 'Connection Setup Agent',
+    subsystem: '4000 Connect',
+    model: 'standard',
+    summary: 'Writes the step-by-step plan the FUTURE4000 team follows to connect a client system behind the scenes (managed setup).',
+    prompt: 'For the system and organization given, write a managed setup plan with these sections: 1 Purpose and data involved (state whether patient information is involved; if yes, a signed business associate agreement is required first). 2 Accounts and agreements the client must have. 3 Credentials needed and exactly where the client creates them. 4 Least-privilege permissions or scopes to request, and scopes to refuse. 5 Where secrets are stored (AWS Secrets Manager or Google Secret Manager, never email or chat). 6 Test plan using test mode and synthetic data only. 7 Go-live checklist with a named human approver. 8 Monitoring and what to do if the connection fails. 9 Known fees charged by the outside company, marked "verify current pricing". 10 Estimated team hours for FUTURE4000 to complete the setup. Do not invent API details you are unsure of; say "confirm in the vendor documentation".'
+  },
+  {
     id: 'hr-credentialing',
     name: 'HR Credentialing Agent',
     subsystem: 'Workforce',

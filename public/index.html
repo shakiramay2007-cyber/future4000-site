@@ -46,6 +46,7 @@
       <button class="tab" data-view="agents">AI Agents</button>
       <button class="tab" data-view="studio">F4 Studio</button>
       <button class="tab" data-view="integrations">4000 Connect</button>
+      <button class="tab admin-only" data-view="payments">Payment Time</button>
       <button class="tab admin-only" data-view="governance">AI Governance</button>
       <button class="tab admin-only" data-view="team">Team</button>
       <button class="tab admin-only" data-view="audit">Audit Log</button>
@@ -237,6 +238,31 @@
         </div>
         <div class="filters" id="int-filters"></div>
         <div id="integration-grid" class="grid"></div>
+      </section>
+
+      <!-- Payment Time -->
+      <section id="payments" class="view">
+        <div class="row-between"><h1>Payment Time</h1><span class="tag hipaa">No patient data in payments</span></div>
+        <p class="lead">Send a secure "pay here" link through the payment system your organization connected in 4000 Connect. Status updates come straight from that system.</p>
+        <div id="pt-msg" class="notice hidden"></div>
+        <div class="kpis">
+          <div class="kpi k1"><span class="ki">$</span><div><b id="pt-paid">$0</b><small>Paid</small></div></div>
+          <div class="kpi k2"><span class="ki">◷</span><div><b id="pt-open">$0</b><small>Waiting to be paid</small></div></div>
+          <div class="kpi k3"><span class="ki">%</span><div><b id="pt-fee">$0</b><small id="pt-fee-label">FUTURE4000 service fee</small></div></div>
+        </div>
+        <div class="panel">
+          <h2>New payment request</h2>
+          <div class="pay-form">
+            <label>Amount (US dollars) <input id="pt-amount" type="number" min="0.5" step="0.01" placeholder="45.00"></label>
+            <label>Description <input id="pt-desc" maxlength="120" placeholder="Office visit balance"></label>
+            <label>Reference or invoice number (optional) <input id="pt-ref" maxlength="40" placeholder="INV-1042"></label>
+            <p class="small muted">Never type patient names, dates of birth or record numbers. Use an invoice or account number.</p>
+            <button class="primary" id="pt-create">Create payment link</button>
+          </div>
+        </div>
+        <div class="panel"><div class="row-between"><h2>Payments</h2><button id="pt-reload">Check status</button></div>
+          <div class="table-wrap"><table class="table"><thead><tr><th>Reference</th><th>Description</th><th>Amount</th><th>Status</th><th>Through</th><th>Created</th><th></th></tr></thead><tbody id="pt-rows"></tbody></table></div>
+        </div>
       </section>
 
       <!-- AI Governance -->

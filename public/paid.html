@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment received</title><meta name="robots" content="noindex">
+<style>body{font-family:Inter,system-ui,sans-serif;background:#f6f8fb;color:#0f1d3a;display:grid;place-items:center;min-height:100vh;margin:0}
+.box{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:40px 44px;max-width:460px;text-align:center;box-shadow:0 10px 30px rgba(15,29,58,.06)}
+h1{font-size:26px;margin:0 0 10px}p{color:#475569;line-height:1.6;margin:0}</style></head>
+<body><div class="box"><h1 id="t">Thank you, your payment was received</h1>
+<p id="m">You can close this page. Your receipt comes from the payment company.</p></div>
+<script>
+const q = new URLSearchParams(location.search);
+if (q.get('canceled')) { document.getElementById('t').textContent = 'Payment not completed'; document.getElementById('m').textContent = 'No money was taken. You can use the same link again if you still need to pay.'; }
+else if (q.get('ref')) document.getElementById('m').textContent = 'Reference ' + q.get('ref').replace(/[^A-Za-z0-9-]/g, '') + '. You can close this page. Your receipt comes from the payment company.';
+</script></body></html>
