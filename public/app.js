@@ -227,6 +227,27 @@ async function openPolicy(id) {
   }));
 }
 
+// ---------- Compliance Blueprint import (preview first, then apply) ----------
+$('#bp-file').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  let blueprint;
+  try { blueprint = JSON.parse(await f.text()); } catch { return show($('#template-msg'), 'That file is not valid JSON.', 'bad'); }
+  try {
+    const { plan } = await api('/api/blueprint/import', { method: 'POST', body: { blueprint, dry_run: true } });
+    const el = $('#bp-preview'); el.classList.remove('hidden');
+    el.innerHTML = `<h3>Review before importing</h3><p class="small">${esc(plan.profile)}</p>
+      <p class="small"><b>${plan.policies_to_create.length}</b> policies will be created as drafts${plan.policies_skipped.length ? `; ${plan.policies_skipped.length} skipped (already exist)` : ''}.</p>
+      <p class="small"><b>${plan.ai_systems_to_add.length}</b> AI systems and <b>${plan.governance_answers}</b> governance answers.</p>
+      <div class="btn-row"><button class="primary" id="bp-apply">Import now</button><button class="secondary" id="bp-cancel">Cancel</button></div>`;
+    $('#bp-cancel').onclick = () => { el.classList.add('hidden'); e.target.value = ''; };
+    $('#bp-apply').onclick = async () => {
+      try { const r = await api('/api/blueprint/import', { method: 'POST', body: { blueprint } });
+        show($('#template-msg'), `Imported: ${r.plan.policies_to_create.length} draft policies created.`, 'ok'); el.classList.add('hidden'); e.target.value = ''; loadPolicies(); loadTemplates(); }
+      catch (err) { show($('#template-msg'), err.message, 'bad'); }
+    };
+  } catch (err) { show($('#template-msg'), err.message, 'bad'); }
+});
+
 // ---------- Templates ----------
 async function loadTemplates() {
   const packs = await api('/api/templates');

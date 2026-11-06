@@ -362,6 +362,77 @@ router.post('/jobs/:id/cancel', requireRole(...EDITORS), wrap(async (req, res) =
   res.json({ ok: true });
 }));
 
+// ---------- F4 Compliance Blueprint: export one facility's setup, import it into another ----------
+const BLUEPRINT_VERSION = 1;
+router.get('/blueprint', requireRole('admin', 'compliance_officer'), wrap(async (req, res) => {
+  const org = (await q('SELECT name, org_type, state, services, beds, accreditor, governance_answers FROM organizations WHERE id=$1', [req.user.org_id])).rows[0];
+  const policies = (await q(
+    `SELECT p.title, p.domain, v.body, COALESCE(array_agg(r.code) FILTER (WHERE r.code IS NOT NULL), '{}') AS regulations
+       FROM policies p JOIN policy_versions v ON v.policy_id=p.id AND v.version=p.current_version
+       LEFT JOIN policy_regulations pr ON pr.policy_id=p.id LEFT JOIN regulations r ON r.id=pr.regulation_id
+      WHERE p.org_id=$1 AND p.status='approved' GROUP BY p.id, v.body ORDER BY p.title`, [req.user.org_id])).rows;
+  const aiSystems = (await q(`SELECT name, vendor, model, purpose, source, risk_level, human_approval_boundary, approved_use FROM ai_systems WHERE org_id=$1 AND status <> 'retired'`, [req.user.org_id])).rows;
+  const blueprint = {
+    kind: 'FUTURE4000ComplianceBlueprint', version: BLUEPRINT_VERSION, exported_at: new Date().toISOString(), source_organization: org.name,
+    profile: { org_type: org.org_type, state: org.state, services: org.services, beds: org.beds, accreditor: org.accreditor },
+    policies, ai_systems: aiSystems, governance_answers: org.governance_answers || {}
+  };
+  await audit(req, 'blueprint.exported', 'organization', req.user.org_id, { policies: policies.length });
+  res.setHeader('Content-Disposition', `attachment; filename="future4000-blueprint-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.json(blueprint);
+}));
+
+router.post('/blueprint/import', requireRole('admin'), wrap(async (req, res) => {
+  const b = req.body?.blueprint;
+  const dryRun = req.body?.dry_run === true;
+  if (!b || b.kind !== 'FUTURE4000ComplianceBlueprint') throw bad('This is not a FUTURE4000 Compliance Blueprint file.');
+  if (b.version > BLUEPRINT_VERSION) throw bad('This blueprint was made by a newer version of FUTURE4000.');
+  if (!Array.isArray(b.policies) || b.policies.length > 2000) throw bad('The blueprint policy list is invalid.');
+  for (const p of b.policies) {
+    if (!p.title || !p.body) throw bad('Every policy needs a title and text.');
+    const scan = scrubPHI(p.body);
+    if (scan.redactions) throw bad(`Policy "${p.title}" appears to contain patient identifiers (${scan.findings.join(', ')}). Remove them before importing.`);
+  }
+  const existing = new Set((await q('SELECT lower(title) AS t FROM policies WHERE org_id=$1', [req.user.org_id])).rows.map((r) => r.t));
+  const plan = {
+    profile: b.profile ? `Set type ${b.profile.org_type}, state ${b.profile.state}, ${b.profile.services?.length || 0} services` : 'No profile change',
+    policies_to_create: b.policies.filter((p) => !existing.has(p.title.toLowerCase())).map((p) => p.title),
+    policies_skipped: b.policies.filter((p) => existing.has(p.title.toLowerCase())).map((p) => p.title),
+    ai_systems_to_add: (b.ai_systems || []).map((x) => x.name),
+    governance_answers: Object.keys(b.governance_answers || {}).length
+  };
+  if (dryRun) return res.json({ dry_run: true, plan });
+  if (b.profile && ORG_TYPES.some((t) => t.id === b.profile.org_type) && STATES.includes(b.profile.state)) {
+    const svc = (b.profile.services || []).filter((x) => SERVICES.includes(x));
+    await q('UPDATE organizations SET org_type=$1, state=$2, services=$3, beds=$4, accreditor=$5, setup_complete=TRUE WHERE id=$6',
+      [b.profile.org_type, b.profile.state, svc, b.profile.beds || null, b.profile.accreditor || null, req.user.org_id]);
+    const regs = (await q(`SELECT id FROM regulations WHERE (applies_to_types && $1::text[] OR 'any' = ANY(applies_to_types))
+      AND (cardinality(applies_to_services)=0 OR applies_to_services && $2::text[]) AND (state IS NULL OR state=$3)`, [[b.profile.org_type], svc, b.profile.state])).rows;
+    for (const r of regs) await q('INSERT INTO org_regulations (org_id, regulation_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.user.org_id, r.id]);
+  }
+  // Imported policies arrive as drafts: each site must have its own clinician approve them.
+  for (const p of b.policies.filter((x) => !existing.has(x.title.toLowerCase()))) {
+    const count = (await q('SELECT count(*)::int AS n FROM policies WHERE org_id=$1', [req.user.org_id])).rows[0].n;
+    const np = (await q('INSERT INTO policies (org_id, title, domain, policy_number, owner_id) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+      [req.user.org_id, p.title.slice(0, 300), p.domain || null, `${(p.domain || 'GEN').slice(0, 3).toUpperCase()}-${String(count + 1).padStart(4, '0')}`, req.user.id])).rows[0];
+    await addVersion(np.id, `${p.body}\n\n[Imported from blueprint "${String(b.source_organization || '').slice(0, 120)}". Review for this facility before approval.]`, 'manual', null, req.user.id);
+    if (Array.isArray(p.regulations) && p.regulations.length) {
+      await q('INSERT INTO policy_regulations (policy_id, regulation_id) SELECT $1, id FROM regulations WHERE code = ANY($2) ON CONFLICT DO NOTHING', [np.id, p.regulations]);
+    }
+  }
+  for (const x of b.ai_systems || []) {
+    const dup = (await q('SELECT 1 FROM ai_systems WHERE org_id=$1 AND lower(name)=lower($2)', [req.user.org_id, x.name || ''])).rowCount;
+    if (!dup && x.name) await q(`INSERT INTO ai_systems (org_id, name, vendor, model, purpose, source, risk_level, human_approval_boundary, approved_use)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [req.user.org_id, x.name, x.vendor, x.model, x.purpose,
+      ['approved', 'embedded_vendor', 'shadow'].includes(x.source) ? x.source : 'approved', ['low', 'medium', 'high'].includes(x.risk_level) ? x.risk_level : 'medium', x.human_approval_boundary, x.approved_use]);
+  }
+  if (b.governance_answers && typeof b.governance_answers === 'object') {
+    await q(`UPDATE organizations SET governance_answers = $1::jsonb || governance_answers WHERE id=$2`, [JSON.stringify(b.governance_answers), req.user.org_id]);
+  }
+  await audit(req, 'blueprint.imported', 'organization', req.user.org_id, { from: b.source_organization, created: plan.policies_to_create.length });
+  res.json({ dry_run: false, plan });
+}));
+
 // ---------- Daily scan ----------
 router.get('/scan/latest', requireUser, wrap(async (req, res) => {
   await q(SCAN_SCHEMA);

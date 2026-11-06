@@ -240,3 +240,4 @@ details summary { cursor: pointer; color: var(--teal-2); font-weight: 600; margi
 .cl { display: grid; grid-template-columns: 180px 1fr; gap: 24px; padding: 26px 0; border-bottom: 1px solid var(--line); }
 .cl-date { color: var(--muted); font-size: 14px; padding-top: 4px; } .cl h3 { color: var(--navy); margin: 8px 0 6px; } .cl p { color: var(--muted); line-height: 1.6; margin: 0; }
 @media (max-width: 640px) { .cl { grid-template-columns: 1fr; gap: 6px; } }
+.bp { border-left: 4px solid var(--teal); } .bp h2 { margin: 0 0 4px; } .bp .btn { cursor: pointer; }

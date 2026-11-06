@@ -116,6 +116,11 @@
       <section id="templates" class="view">
         <h1>F4 Templates</h1>
         <p class="lead">One-click compliance packs. Each pack creates every required policy as a linked draft, ready for clinician review. Policies you already have are skipped.</p>
+        <div class="panel editor-only bp"><div class="row-between"><div><h2>Compliance Blueprint</h2>
+          <p class="muted small">Copy one facility's full setup to another: profile, approved policies, AI inventory and governance answers. Imported policies arrive as drafts so each site's clinicians approve them.</p></div>
+          <div class="btn-row"><a class="secondary btn" href="/api/blueprint">Export blueprint</a>
+          <label class="secondary btn admin-strict">Import blueprint <input type="file" id="bp-file" accept=".json,application/json" hidden /></label></div></div>
+          <div id="bp-preview" class="hidden"></div></div>
         <div id="template-msg" class="notice hidden"></div>
         <div id="template-grid" class="grid"></div>
       </section>
