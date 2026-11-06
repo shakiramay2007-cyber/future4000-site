@@ -270,10 +270,22 @@ router.get('/audit', requireRole('admin', 'compliance_officer'), wrap(async (req
 // ---------- Agents (logged-in, with organization context) ----------
 router.post('/org/agents/:id/run', requireUser, wrap(async (req, res) => {
   const org = (await q('SELECT name, org_type, state, services, accreditor FROM organizations WHERE id=$1', [req.user.org_id])).rows[0];
-  const r = await runAgent(req.params.id, req.body?.input, {
-    orgContext: `${org.name}; type ${org.org_type || 'not set'}; state ${org.state || 'not set'}; services ${(org.services || []).join(', ')}; accreditor ${org.accreditor || 'not set'}`
+  let documents;
+  if (req.body?.document) {
+    const { name = 'document', type = '', data } = req.body.document;
+    const bytes = Buffer.from(String(data || ''), 'base64');
+    if (!bytes.length) throw bad('The uploaded file is empty.');
+    if (bytes.length > 4.5 * 1024 * 1024) throw bad('Files must be 4.5 MB or smaller.');
+    const format = type === 'application/pdf' || /\.pdf$/i.test(name) ? 'pdf' : 'txt';
+    if (format === 'txt' && /[^\x09\x0a\x0d\x20-\x7e\u00a0-\uffff]/.test(bytes.toString('utf8').slice(0, 2000))) throw bad('Upload a PDF or a plain-text file.');
+    documents = [{ name, format, bytes: new Uint8Array(bytes) }];
+  }
+  const regs = (await q('SELECT r.code, r.title FROM org_regulations o JOIN regulations r ON r.id=o.regulation_id WHERE o.org_id=$1', [req.user.org_id])).rows;
+  const r = await runAgent(req.params.id, req.body?.input || (documents ? 'Review the attached document.' : ''), {
+    documents,
+    orgContext: `${org.name}; type ${org.org_type || 'not set'}; state ${org.state || 'not set'}; services ${(org.services || []).join(', ')}; accreditor ${org.accreditor || 'not set'}. Mapped requirements: ${regs.map((x) => `${x.code} (${x.title})`).join('; ') || 'none yet'}`
   });
-  await audit(req, 'ai.agent_run', 'agent', req.params.id, { model: r.model, provider: r.provider, phi_redactions: r.phi.redactions, failovers: r.failovers.length });
+  await audit(req, 'ai.agent_run', 'agent', req.params.id, { model: r.model, provider: r.provider, phi_redactions: r.phi.redactions, failovers: r.failovers.length, document: documents?.[0]?.name });
   res.json(r);
 }));
 

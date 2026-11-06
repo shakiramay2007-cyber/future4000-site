@@ -318,13 +318,17 @@ async function loadAgents() {
     $('#agent-title').textContent = currentAgent.name;
     $('#agent-summary').textContent = currentAgent.summary;
     $('#agent-run').disabled = false;
+    $('#agent-file-wrap').classList.toggle('hidden', !currentAgent.acceptsDocument);
   }));
 }
 $('#agent-run').addEventListener('click', async () => {
   const btn = $('#agent-run'), out = $('#agent-output'), phi = $('#agent-phi');
   btn.disabled = true; btn.textContent = 'Working...'; out.classList.add('hidden'); phi.classList.add('hidden'); $('#agent-model').textContent = '';
   try {
-    const r = await api(`/api/org/agents/${currentAgent.id}/run`, { method: 'POST', body: { input: $('#agent-input').value } });
+    const body = { input: $('#agent-input').value };
+    const f = currentAgent.acceptsDocument && $('#agent-file').files[0];
+    if (f) body.document = { name: f.name, type: f.type, data: await new Promise((ok, no) => { const rd = new FileReader(); rd.onload = () => ok(String(rd.result).split(',')[1]); rd.onerror = no; rd.readAsDataURL(f); }) };
+    const r = await api(`/api/org/agents/${currentAgent.id}/run`, { method: 'POST', body });
     if (r.phi?.redactions) show(phi, `Protected: ${r.phi.redactions} identifier(s) masked (${r.phi.types.join(', ')}).`);
     out.textContent = r.output; out.classList.remove('hidden');
     $('#agent-model').textContent = `Answered by ${r.model}${r.failovers?.length ? ` after ${r.failovers.length} automatic failover(s)` : ''}. Clinician review required before official use.`;

@@ -66,6 +66,15 @@ export const AGENTS = [
     prompt: 'Analyze the HL7 v2 message or FHIR resource. Explain each segment or element, flag structural errors or missing required fields, and provide the equivalent HL7 v2 to FHIR R4 mapping.'
   },
   {
+    id: 'gap-review',
+    name: 'Policy Gap Review (upload a document)',
+    subsystem: 'DocuTrack AI',
+    model: 'heavy',
+    acceptsDocument: true,
+    summary: 'Upload an existing policy (PDF or text). Claude reads it and lists what is missing or outdated against your mapped regulations, with suggested fixes.',
+    prompt: 'Review the attached policy document. Produce: 1) a one-paragraph summary, 2) a gap table (Requirement | What the document says | Gap or risk | Recommended fix), 3) outdated language or citations, 4) a prioritized list of edits. Only judge against requirements you are confident apply; say when you are unsure.'
+  },
+  {
     id: 'hr-credentialing',
     name: 'HR Credentialing Agent',
     subsystem: 'Workforce',
@@ -82,6 +91,6 @@ export async function runAgent(agentId, userInput, opts = {}) {
   if (!agent) throw Object.assign(new Error('Unknown agent'), { status: 404 });
   if (!userInput || !String(userInput).trim()) throw Object.assign(new Error('Please enter a request.'), { status: 400 });
   const context = opts.orgContext ? `\n\nOrganization context: ${opts.orgContext}` : '';
-  const r = await complete(agent.model, `${COMMON_RULES}\n\nYour role: ${agent.name}.\n${agent.prompt}${context}`, userInput, { preferred: opts.provider });
+  const r = await complete(agent.model, `${COMMON_RULES}\n\nYour role: ${agent.name}.\n${agent.prompt}${context}`, userInput, { preferred: opts.provider, documents: opts.documents });
   return { agent: agent.name, agentId: agent.id, model: r.model, provider: r.provider, output: r.text, phi: r.phi, failovers: r.failovers, usage: r.usage };
 }
