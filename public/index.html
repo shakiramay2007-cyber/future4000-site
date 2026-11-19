@@ -51,6 +51,7 @@
       <button class="tab" data-view="agents">AI Agents</button>
       <button class="tab" data-view="studio">F4 Studio</button>
       <button class="tab" data-view="homecare">Home Care</button>
+      <button class="tab admin-only" data-view="megahr">MEGAHOSPITAL HR4000</button>
       <button class="tab" data-view="integrations">4000 Connect</button>
       <button class="tab admin-only" data-view="pay4000">PAY4000 Invoices</button>
       <button class="tab admin-only" data-view="payments">Payment Time</button>
@@ -388,6 +389,21 @@
         </form>
         <div id="p4-msg" class="notice hidden" role="status"></div>
         <div class="panel"><h2>Invoices</h2><div id="p4-list">Open PAY4000 to load invoices.</div></div>
+      </section>
+
+      <section class="view" id="megahr">
+        <div class="row-between"><div><h1>MEGAHOSPITAL HR4000</h1><p class="lead">Personnel orientation &amp; 900 controlled HR forms — 50 roles × 18 forms</p></div><span class="tag">Draft templates / clinical review required</span></div>
+        <div class="panel">
+          <p>Search hospital roles, review linked CMS Conditions of Participation, and generate unfilled forms. These templates contain no employee records.</p>
+          <div class="grid">
+            <label>Hospital role<select id="mh-role"><option value="">Select hospital role</option></select></label>
+            <label>HR form type<select id="mh-form"><option value="">Select form type</option></select></label>
+          </div>
+          <button type="button" id="mh-generate">Preview blank HR form</button>
+          <button type="button" class="secondary" id="mh-orient">View personnel orientation</button>
+          <div id="mh-status" class="notice hidden" role="status"></div>
+        </div>
+        <div class="panel"><h2>Personnel orientation and regulatory references</h2><div id="mh-output" aria-live="polite">Select a role to review department and hospital-wide orientation policies.</div></div>
       </section>
 
       <!-- Billing -->
