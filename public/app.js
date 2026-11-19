@@ -895,3 +895,8 @@ $('#p4-invoice-form').addEventListener('submit',async e=>{
   try {await api('/api/billing4000/invoices',{method:'POST',body});e.currentTarget.reset();show($('#p4-msg'),'Draft invoice saved.','ok');await loadPay4000();}
   catch(err){show($('#p4-msg'),err.message,'bad');}
 });
+
+// PAY4000 installed web app: never cache private invoices, records, API responses or payment data.
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('/pay4000-sw.js').catch(() => {});
+}
