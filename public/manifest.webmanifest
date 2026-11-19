@@ -1,0 +1,20 @@
+{
+  "id": "/app",
+  "name": "FUTURE4000 PAY4000 — Business Billing",
+  "short_name": "PAY4000",
+  "description": "Secure business invoicing and revenue workspace",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f8b8d",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/pay4000-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
