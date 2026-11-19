@@ -831,6 +831,7 @@ function renderCatalog() {
       <h3>${esc(a.name)}</h3>
       <p class="small muted">${esc(a.category)}</p>
       <p>${esc(a.description)}</p>
+      <p class="small muted"><strong>Required:</strong> website, dashboard, frontend, backend, database, identity, security, tests.</p>
       <span class="tag ${active ? 'connected' : 'needs'}">${active ? 'Existing code capability' : 'Planned - not deployed'}</span>
       ${target ? `<button type="button" class="secondary catalog-open" data-target="${esc(target)}">Open existing workspace</button>` : ''}
     </article>`;
