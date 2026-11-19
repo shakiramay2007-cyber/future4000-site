@@ -1001,4 +1001,209 @@ export const MEGA_HR = {
   ]
 };
 export const MEGA_HR_FORM_COUNT = MEGA_HR.roles.length * MEGA_HR.formTypes.length;
-export function getMegaHrForm(roleId,formId){const role=MEGA_HR.roles.find(x=>x.id===roleId); const form=MEGA_HR.formTypes.find(x=>x.id===formId); if(!role||!form)return null;return {id:roleId+'-'+formId,facility:'MEGAHOSPITAL',role,form,fields:form.fields,orientationPolicyIds:[...new Set([...MEGA_HR.orientation.common,...(MEGA_HR.orientation.byDepartment[role.department]||[])])],status:'draft_template',approvalRequired:true};}
+
+export const MEGA_HR_SPECIALIZED_FIELDS = Object.freeze({
+  "HR01": [
+    "position_control_number",
+    "vacancy_reason",
+    "fte",
+    "employment_classification",
+    "salary_range_approval",
+    "funding_code"
+  ],
+  "HR02": [
+    "essential_job_functions",
+    "physical_demands",
+    "required_certifications",
+    "authorized_scope_of_practice",
+    "reporting_relationship"
+  ],
+  "HR03": [
+    "panel_members",
+    "consistent_job_related_questions",
+    "interview_score",
+    "selection_rationale",
+    "conflict_of_interest_check"
+  ],
+  "HR04": [
+    "offer_conditions",
+    "compensation_approval",
+    "start_date",
+    "license_contingency",
+    "authorized_signatory"
+  ],
+  "HR05": [
+    "form_i9_official_record_location",
+    "work_authorization_verification_owner",
+    "verification_completion_date",
+    "reverification_trigger"
+  ],
+  "HR06": [
+    "license_type",
+    "licensing_state",
+    "primary_source_issuer",
+    "license_expiration",
+    "license_status",
+    "restrictions_review",
+    "verification_date"
+  ],
+  "HR07": [
+    "degree_program",
+    "degree_source",
+    "certification_body",
+    "training_verified",
+    "relevant_experience_evidence"
+  ],
+  "HR08": [
+    "background_consent_record",
+    "screening_provider",
+    "jurisdiction_rules_review",
+    "adverse_action_process_if_applicable",
+    "final_reviewer"
+  ],
+  "HR09": [
+    "occupational_health_restrictions_if_any",
+    "fit_for_duty_clearance_status",
+    "clearance_issuer_role",
+    "accommodation_referral",
+    "restricted_storage_reference"
+  ],
+  "HR10": [
+    "orientation_modules_assigned",
+    "patient_rights_lesson",
+    "emergency_response_lesson",
+    "infection_prevention_lesson",
+    "knowledge_test_result",
+    "acknowledgement_version"
+  ],
+  "HR11": [
+    "department_mentor",
+    "clinical_scope",
+    "unit_equipments",
+    "supervision_plan",
+    "demonstrations_completed",
+    "supervisor_validation"
+  ],
+  "HR12": [
+    "assigned_module_ids",
+    "policy_revision",
+    "assigned_date",
+    "due_date",
+    "training_completion_date",
+    "learning_evidence_id"
+  ],
+  "HR13": [
+    "role_competencies",
+    "assessment_methods",
+    "observable_skills",
+    "assessor_qualification",
+    "pass_fail_and_remediation",
+    "reassessment_date"
+  ],
+  "HR14": [
+    "evaluation_period",
+    "objective_measures",
+    "achievements",
+    "areas_for_growth",
+    "employee_comments",
+    "reviewer_attestation"
+  ],
+  "HR15": [
+    "competency_gap",
+    "annual_learning_goals",
+    "education_resources",
+    "target_dates",
+    "completion_review"
+  ],
+  "HR16": [
+    "event_record_reference",
+    "workplace_safety_learnings",
+    "training_action",
+    "policy_change_referral",
+    "follow_up_owner"
+  ],
+  "HR17": [
+    "performance_expectations",
+    "measurable_improvement_steps",
+    "coaching_schedule",
+    "support_provided",
+    "outcome_decision"
+  ],
+  "HR18": [
+    "termination_reason_category",
+    "final_day",
+    "system_access_disabled_at",
+    "hospital_property_returned",
+    "confidentiality_reminder",
+    "offboarding_signoff"
+  ]
+});
+export const MEGA_HR_COMPETENCIES = Object.freeze({
+  "Leadership": [
+    "Delegated authority and escalation",
+    "Board reporting and QAPI governance",
+    "Budget and safety resources",
+    "Policy approval and oversight",
+    "Conflict-of-interest controls"
+  ],
+  "Nursing": [
+    "Patient identification and handoff",
+    "Care plans and delegation",
+    "Medication safety and escalation",
+    "Deteriorating patient response",
+    "Infection prevention and PPE"
+  ],
+  "Medical": [
+    "Credentialed scope and privileges",
+    "Clinical documentation and orders",
+    "Diagnostic communication",
+    "Patient rights and consent",
+    "Emergency escalation and handoff"
+  ],
+  "Pharmacy and Diagnostics": [
+    "Specimen or medication identification",
+    "Critical result escalation",
+    "Quality control",
+    "Equipment safety",
+    "Documentation and incident reporting"
+  ],
+  "Allied Health": [
+    "Referral and evaluation standards",
+    "Patient-centered treatment planning",
+    "Documented interventions",
+    "Patient safety",
+    "Discharge and care coordination"
+  ],
+  "Operations": [
+    "Access control and secure handling",
+    "Facility and equipment safety",
+    "Incident escalation",
+    "Privacy and workplace conduct",
+    "Role-specific emergency response"
+  ]
+});
+export function listMegaHrForms() {
+ return MEGA_HR.roles.flatMap(role=>MEGA_HR.formTypes.map(form=>({
+ id:role.id+'-'+form.id,
+ role:role.title,department:role.department,
+ form:form.title,formId:form.id,
+ status:'draft_template'
+ })));
+}
+export function getMegaHrForm(roleId,formId){
+ const role=MEGA_HR.roles.find(x=>x.id===roleId);
+ const form=MEGA_HR.formTypes.find(x=>x.id===formId);
+ if(!role||!form)return null;
+ const requiredPolicyIds=[...new Set([...MEGA_HR.orientation.common,...(MEGA_HR.orientation.byDepartment[role.department]||[])])];
+ const fields=[...new Set([...form.fields,...(MEGA_HR_SPECIALIZED_FIELDS[form.id]||[])])];
+ const objectives=[...(MEGA_HR_COMPETENCIES[role.department]||[])];
+ if(/Pharmacist|Pharmacy/.test(role.title))objectives.push('High-risk medication management and medication stewardship');
+ if(/Nurse/.test(role.title))objectives.push('Safe nursing care assignment and licensure verification');
+ if(/Infection Preventionist/.test(role.title))objectives.push('IPC surveillance, investigation, and regulatory reporting process');
+ if(/Security Officer/.test(role.title))objectives.push('Visitor security, emergency codes and de-escalation');
+ if(/Information Security Analyst/.test(role.title))objectives.push('Least privilege, incident triage and access audit reviews');
+ return {id:role.id+'-'+form.id,facility:'MEGAHOSPITAL',role,form,fields,
+ roleCompetencyObjectives:objectives,orientationPolicyIds:requiredPolicyIds,
+ workflow:['Assign to authorized HR professional','Collect permitted evidence','Check completeness','Route to supervisor or credential reviewer','Record outcome with real signature and date','Retain under approved hospital schedule'],
+ status:'draft_template',approvalRequired:true,requiresFacilityValidation:true};
+}
