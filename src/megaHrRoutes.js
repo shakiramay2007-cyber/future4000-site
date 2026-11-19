@@ -2,7 +2,7 @@
 // READ-ONLY GENERATORS: do not submit employee information into these endpoints.
 import express from 'express';
 import { requireUser, requireRole } from './auth.js';
-import { MEGA_HR, MEGA_HR_FORM_COUNT, getMegaHrForm } from './megaHr4000.js';
+import { MEGA_HR, MEGA_HR_FORM_COUNT, getMegaHrForm, listMegaHrForms } from './megaHr4000.js';
 
 export const megaHrRouter=express.Router();
 megaHrRouter.use(requireUser,requireRole('admin','compliance_officer','clinician_reviewer'));
@@ -22,4 +22,14 @@ megaHrRouter.get('/forms/:roleId/:formId',(req,res)=>{
  const form=getMegaHrForm(req.params.roleId,req.params.formId);
  if(!form)return res.status(404).json({error:'Template not found'});
  res.json({...form,warning:'Template only. Do not enter patient data, passwords, SSN, or medical clearance details. No employee record exists until implemented within secured HR storage.'});
+});
+
+megaHrRouter.get('/forms.csv',(_req,res)=>{
+ const csvCell = value => '"' + String(value ?? '').replace(/"/g,'""') + '"';
+ const rows = [['Form ID','Department','Hospital Role','Form Type','Status'],
+  ...listMegaHrForms().map(r=>[r.id,r.department,r.role,r.form,r.status])];
+ res.set('Content-Type','text/csv; charset=utf-8');
+ res.set('Content-Disposition','attachment; filename="MEGAHOSPITAL_HR4000_900_Form_Index.csv"');
+ res.set('Cache-Control','private, no-store');
+ res.send(rows.map(row=>row.map(csvCell).join(',')).join('\r\n'));
 });
