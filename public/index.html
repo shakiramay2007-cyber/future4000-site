@@ -40,6 +40,7 @@
     <nav class="tabs side">
       <div class="side-search"><input id="side-search" placeholder="Search policies..." /></div>
       <button class="tab active" data-view="dashboard">Dashboard</button>
+      <button class="tab" data-view="app-catalog">50 Applications</button>
       <button class="tab" data-view="policies">Policies</button>
       <button class="tab" data-view="templates">F4 Templates</button>
       <button class="tab" data-view="learn">LearnTrack</button>
@@ -93,6 +94,19 @@
           <h2>Your compliance map</h2>
           <div id="reg-list" class="reg-list"></div>
         </div>
+      </section>
+
+      <!-- Registered applications; not a claim that all apps are deployed -->
+      <section id="app-catalog" class="view">
+        <div class="row-between"><div><h1>FUTURE4000 Application Center</h1><p class="lead">50 managed application records. Existing capabilities are distinguished from planned modules.</p></div><span class="tag">Private client workspace</span></div>
+        <div class="panel">
+          <label for="catalog-search">Find an application</label>
+          <input id="catalog-search" type="search" placeholder="Search apps, categories or capabilities..." aria-label="Search applications" />
+          <label for="catalog-category">Category</label>
+          <select id="catalog-category"><option value="">All categories</option></select>
+          <p id="catalog-status" class="muted small" role="status">Open Application Center to load the secured registry.</p>
+        </div>
+        <div id="catalog-grid" class="grid"></div>
       </section>
 
       <!-- Policies -->
