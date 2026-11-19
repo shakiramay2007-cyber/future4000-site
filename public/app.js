@@ -854,3 +854,44 @@ async function loadAppCatalog() {
 document.querySelector('[data-view="app-catalog"]').addEventListener('click', loadAppCatalog);
 $('#catalog-search').addEventListener('input', renderCatalog);
 $('#catalog-category').addEventListener('change', renderCatalog);
+
+
+// ---------- PAY4000: independent billing workspace (no card data) ----------
+const p4money = cents => '$' + (Number(cents || 0) / 100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+async function loadPay4000() {
+  try {
+    const [summary, detail] = await Promise.all([api('/api/billing4000/dashboard'), api('/api/billing4000/invoices')]);
+    $('#p4-summary').innerHTML = ['draft','issued','paid','void'].map(status=>{
+      const group = summary.groups.find(g => g.status === status) || {count:0,amount_cents:0};
+      return `<div class="card"><h3>${esc(status.toUpperCase())}</h3><b>${esc(group.count)}</b><p>${esc(p4money(group.amount_cents))}</p></div>`;
+    }).join('');
+    $('#p4-list').innerHTML = detail.invoices.length ? `<table class="table"><thead><tr><th>Number</th><th>Client</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>${detail.invoices.map(i=>`
+    <tr><td>${esc(i.invoice_number)}</td><td>${esc(i.client_name)}</td><td>${esc(p4money(i.amount_cents))}</td><td>${esc(i.status)}</td>
+    <td>${i.status==='draft'? `<button type="button" data-id="${Number(i.id)}" data-state="issued" class="p4-transition secondary">Issue</button>` : ''}
+    ${i.status==='issued'? `<button type="button" data-id="${Number(i.id)}" data-state="paid" class="p4-transition secondary">Reconcile</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No invoices yet.</p>';
+    $$('#p4-list .p4-transition').forEach(btn=>btn.addEventListener('click', async()=>{
+      const desired=btn.dataset.state;
+      if(desired==='paid'){
+        const payment_reference=prompt('Enter an independently verified external settlement reference (do not enter card or bank details):');
+        if(!payment_reference)return;
+        const payment_method=prompt('Enter method label (e.g. external bank transfer), with no account numbers:');
+        if(!payment_method)return;
+        try {await api('/api/billing4000/invoices/'+btn.dataset.id+'/status',{method:'POST',body:{status:desired,payment_reference,payment_method}});await loadPay4000();}
+        catch(e){show($('#p4-msg'),e.message,'bad');}
+      } else {
+        try {await api('/api/billing4000/invoices/'+btn.dataset.id+'/status',{method:'POST',body:{status:desired}});await loadPay4000();}
+        catch(e){show($('#p4-msg'),e.message,'bad');}
+      }
+    }));
+  }catch(e){show($('#p4-msg'),e.message,'bad');}
+}
+$('[data-view="pay4000"]').addEventListener('click', loadPay4000);
+$('#p4-invoice-form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const form=new FormData(e.currentTarget);
+  const amount=Number(form.get('amount_usd'));
+  if(!Number.isFinite(amount)||amount<=0||!Number.isSafeInteger(Math.round(amount*100))){show($('#p4-msg'),'Enter a valid positive dollar amount.','bad');return;}
+  const body={client_name:form.get('client_name'),client_email:form.get('client_email'),description:form.get('description'),amount_cents:Math.round(amount*100),due_date:form.get('due_date')||null};
+  try {await api('/api/billing4000/invoices',{method:'POST',body});e.currentTarget.reset();show($('#p4-msg'),'Draft invoice saved.','ok');await loadPay4000();}
+  catch(err){show($('#p4-msg'),err.message,'bad');}
+});
