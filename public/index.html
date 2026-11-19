@@ -48,6 +48,7 @@
       <button class="tab" data-view="studio">F4 Studio</button>
       <button class="tab" data-view="homecare">Home Care</button>
       <button class="tab" data-view="integrations">4000 Connect</button>
+      <button class="tab admin-only" data-view="pay4000">PAY4000 Invoices</button>
       <button class="tab admin-only" data-view="payments">Payment Time</button>
       <button class="tab admin-only" data-view="governance">AI Governance</button>
       <button class="tab admin-only" data-view="team">Team</button>
@@ -365,6 +366,24 @@
       <section id="audit" class="view">
         <div class="row-between"><h1>Audit Log</h1><a class="secondary btn" href="/api/audit?format=csv&limit=1000">Download CSV</a></div>
         <table class="table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Item</th><th>Details</th></tr></thead><tbody id="audit-body"></tbody></table>
+      </section>
+
+      <!-- PAY4000 own-software invoicing; no card capture, no money movement -->
+      <section id="pay4000" class="view">
+        <div class="row-between"><div><h1>PAY4000 — Business Billing</h1><p class="lead">Create invoices, track receivables and reconcile payments documented outside this platform.</p></div><span class="tag">Private workspace</span></div>
+        <p class="small muted">PAY4000 does not process payment cards, transfer funds, or automatically charge customers. Never enter card numbers, bank credentials or patient data.</p>
+        <div class="grid" id="p4-summary"></div>
+        <form id="p4-invoice-form" class="panel">
+          <h2>Create an invoice</h2>
+          <label>Customer or organization name<input name="client_name" maxlength="180" required /></label>
+          <label>Customer billing email<input name="client_email" type="email" maxlength="190" /></label>
+          <label>Service description (no patient data)<input name="description" maxlength="500" required /></label>
+          <label>Amount (USD)<input name="amount_usd" type="number" step="0.01" min="0.01" max="10000000" required /></label>
+          <label>Due date<input name="due_date" type="date" /></label>
+          <button type="submit">Save draft invoice</button>
+        </form>
+        <div id="p4-msg" class="notice hidden" role="status"></div>
+        <div class="panel"><h2>Invoices</h2><div id="p4-list">Open PAY4000 to load invoices.</div></div>
       </section>
 
       <!-- Billing -->
