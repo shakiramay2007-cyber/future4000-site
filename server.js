@@ -14,6 +14,7 @@ import { govRouter } from './src/governance.js';
 import { payRouter } from './src/pay.js';
 import { connectRouter } from './src/connect.js';
 import { hcRouter } from './src/homecare.js';
+import { billingRouter } from './src/billing4000.js';
 import { resumeJobs } from './src/jobs.js';
 import { listIntegrations, testIntegration } from './src/integrations.js';
 import { PLANS } from './src/plans.js';
@@ -73,6 +74,7 @@ app.use('/api/governance', govRouter);
 app.use('/api/pay', payRouter);
 app.use('/api/connect', connectRouter);
 app.use('/api/homecare', hcRouter);
+app.use('/api/billing4000', billingRouter);
 
 // Agents
 app.get('/api/agents', (_req, res) => res.json(AGENTS.map(({ prompt, ...a }) => a)));
