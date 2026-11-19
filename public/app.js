@@ -900,3 +900,43 @@ $('#p4-invoice-form').addEventListener('submit',async e=>{
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('/pay4000-sw.js').catch(() => {});
 }
+
+
+// MEGAHOSPITAL HR4000 - private, read-only template generator.
+// All data here is model content, not live employee information.
+let MH_CATALOG=null;
+async function loadMegaHr() {
+  try {
+    MH_CATALOG=await api('/api/megahr/catalog');
+    $('#mh-role').innerHTML='<option value="">Select hospital role</option>'+
+      MH_CATALOG.roles.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.department+' — '+r.title)+'</option>').join('');
+    $('#mh-form').innerHTML='<option value="">Select form type</option>'+
+      MH_CATALOG.formTypes.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.id+' — '+t.title)+'</option>').join('');
+    $('#mh-output').textContent='Loaded '+MH_CATALOG.roles.length+' roles, '+MH_CATALOG.formTypes.length+' form types and '+MH_CATALOG.policies.length+' policy references. Select a role to view orientation.';
+  }catch(e){show($('#mh-status'),e.message,'bad');}
+}
+$('[data-view="megahr"]').addEventListener('click',loadMegaHr);
+$('#mh-orient').addEventListener('click',async()=>{
+  const role=$('#mh-role').value;if(!role){show($('#mh-status'),'Choose a role.','bad');return;}
+  try{
+    const data=await api('/api/megahr/orientation/'+encodeURIComponent(role));
+    $('#mh-output').innerHTML='<h3>'+esc(data.role.title)+'</h3>'+
+      '<p>Department: '+esc(data.role.department)+' · '+esc(data.approvalStatus)+'</p>'+
+      '<p><strong>Required policy orientation and review:</strong></p>'+
+      '<ol>'+data.policies.map(p=>'<li><strong>'+esc(p.title)+'</strong><p class="small">Authority / mapping: '+esc(p.authority)+' · Teaching emphasis: '+esc(p.lesson)+'</p></li>').join('')+'</ol>'+
+      '<p class="small muted">'+esc(data.reviewCycle)+'</p>';
+  }catch(e){show($('#mh-status'),e.message,'bad');}
+});
+$('#mh-generate').addEventListener('click',async()=>{
+  const role=$('#mh-role').value,form=$('#mh-form').value;
+  if(!role||!form){show($('#mh-status'),'Choose a role and HR form type.','bad');return;}
+  try{
+    const d=await api('/api/megahr/forms/'+encodeURIComponent(role)+'/'+encodeURIComponent(form));
+    $('#mh-output').innerHTML='<h3>'+esc(d.id+' — '+d.form.title)+'</h3>'+
+      '<p>'+esc(d.form.purpose)+'</p>'+
+      '<p><strong>Blank template fields (not yet an employee record):</strong></p>'+
+      '<div class="grid">'+d.fields.map(k=>'<label>'+esc(k.replace(/_/g,' '))+'<input disabled placeholder="Complete only in authorized HR system"></label>').join('')+'</div>'+
+      '<p class="small muted">'+esc(d.warning)+'</p>'+
+      '<p>Linked orientation policy IDs: '+d.orientationPolicyIds.map(esc).join(', ')+'</p>';
+  }catch(e){show($('#mh-status'),e.message,'bad');}
+});
