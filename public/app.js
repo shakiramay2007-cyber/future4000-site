@@ -806,3 +806,50 @@ $('#studio-copy').addEventListener('click', async () => {
 buildStudioPrompt();
 
 boot();
+
+
+// ---------- FUTURE4000 Application Center (read-only capabilities registry) ----------
+let CATALOG = [];
+const catalogRoutes = {
+  POLICY4000: 'policies',
+  ACCRE4000: 'dashboard',
+  SURVEY4000: 'templates',
+  LMS4000: 'learn',
+  VIKTOR4000: 'agents',
+  CONNECT4000: 'integrations'
+};
+function renderCatalog() {
+  const term = String($('#catalog-search')?.value || '').trim().toLowerCase();
+  const category = $('#catalog-category')?.value || '';
+  const filtered = CATALOG.filter(a => (!category || a.category === category) &&
+    (!term || [a.id, a.category, a.description].join(' ').toLowerCase().includes(term)));
+  $('#catalog-status').textContent = `${filtered.length} of ${CATALOG.length} applications. "Existing capability" is not a production-readiness certification.`;
+  $('#catalog-grid').innerHTML = filtered.map(a => {
+    const active = a.status === 'existing-capability';
+    const target = catalogRoutes[a.id];
+    return `<article class="card">
+      <h3>${esc(a.name)}</h3>
+      <p class="small muted">${esc(a.category)}</p>
+      <p>${esc(a.description)}</p>
+      <span class="tag ${active ? 'connected' : 'needs'}">${active ? 'Existing code capability' : 'Planned - not deployed'}</span>
+      ${target ? `<button type="button" class="secondary catalog-open" data-target="${esc(target)}">Open existing workspace</button>` : ''}
+    </article>`;
+  }).join('') || '<p class="muted">No matching applications.</p>';
+  $$('#catalog-grid .catalog-open').forEach(button => button.addEventListener('click', () => {
+    const target = document.querySelector(`.tab[data-view="${button.dataset.target}"]`);
+    if (target && !target.classList.contains('hidden')) target.click();
+  }));
+}
+async function loadAppCatalog() {
+  try {
+    const result = await api('/api/app-catalog');
+    CATALOG = Array.isArray(result.applications) ? result.applications : [];
+    const categories = [...new Set(CATALOG.map(a => a.category))];
+    $('#catalog-category').innerHTML = '<option value="">All categories</option>' +
+      categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    renderCatalog();
+  } catch (err) { show($('#catalog-status'), err.message, 'bad'); }
+}
+document.querySelector('[data-view="app-catalog"]').addEventListener('click', loadAppCatalog);
+$('#catalog-search').addEventListener('input', renderCatalog);
+$('#catalog-category').addEventListener('change', renderCatalog);
