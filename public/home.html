@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0F8B8D" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <title>FUTURE4000 | The compliance operating system for healthcare, universities and government</title>
   <meta name="description" content="FUTURE4000 maps every regulation that applies to you, drafts survey-ready policies with clinician-approved AI, trains staff, and scans for new federal rules every morning at 8:30 AM." />
   <meta property="og:title" content="FUTURE4000: The compliance operating system for healthcare" />
@@ -177,6 +179,27 @@
     <p class="section-sub small">Billing is for organizations only. Patient information is never stored in billing systems.</p>
   </section>
 
+  <section id="request-demo" class="section">
+    <h2>Request a FUTURE4000 demonstration</h2>
+    <p class="section-sub">Tell us which business or compliance workflow you want to improve. No patient, payment-card, or other sensitive information.</p>
+    <form id="f4-lead-form" class="panel" style="max-width:720px;margin:auto;display:grid;gap:12px" aria-label="Request a business demonstration">
+      <label>Full name <input name="name" maxlength="120" required autocomplete="name" /></label>
+      <label>Organization <input name="organization" maxlength="200" required autocomplete="organization" /></label>
+      <label>Business email <input name="email" type="email" maxlength="200" required autocomplete="email" /></label>
+      <label>Choose the service <select name="interest" required>
+        <option value="billing">PAY4000 — invoices and customer payments</option>
+        <option value="crm">CRM4000 — sales and leads</option>
+        <option value="healthcare">Healthcare policies and compliance</option>
+        <option value="lms">LMS and education</option>
+        <option value="publishing">LIBRARY4000 publishing</option>
+      </select></label>
+      <label>What would you like to improve? <textarea name="use_case" maxlength="2000" rows="4" placeholder="Example: We need an invoice dashboard and approved payment links."></textarea></label>
+      <label style="position:absolute;left:-99999px" aria-hidden="true">Website <input name="website" tabindex="-1" autocomplete="off" /></label>
+      <label><input type="checkbox" id="f4-lead-consent" required /> I agree to be contacted about this request. No unrelated marketing without separate consent.</label>
+      <button type="submit" class="primary">Request a demonstration</button>
+      <p id="f4-lead-msg" role="status" aria-live="polite"></p>
+    </form>
+  </section>
   <section class="final-cta">
     <h2>Be survey-ready every day, not just the week before.</h2>
     <a class="primary big" href="/app">Start your organization</a>
@@ -189,6 +212,21 @@
 
   <script>
     document.querySelector('.home-foot span').textContent = `© ${new Date().getFullYear()} LaFortune Business Management · FUTURE4000`;
+    document.getElementById('f4-lead-form').addEventListener('submit',async event => {
+      event.preventDefault();
+      const form=event.currentTarget;
+      const output=document.getElementById('f4-lead-msg');
+      output.textContent='Submitting request...';
+      const fields=Object.fromEntries(new FormData(form));
+      if(!document.getElementById('f4-lead-consent').checked){output.textContent='Please confirm contact permission.';return;}
+      try {
+        const response=await fetch('/api/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fields)});
+        const result=await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(result.error || 'Request could not be submitted.');
+        output.textContent='Request received. Thank you.';
+        form.reset();
+      } catch (e) {output.textContent=e.message;}
+    });
     fetch('/api/plans').then((r) => r.json()).then((plans) => {
       document.getElementById('home-plans').innerHTML = Object.values(plans).map((p) => `
         <div class="card"><h3>${p.name}</h3><div class="price">$${(p.amount / 100).toLocaleString()} <small>/ month</small></div>

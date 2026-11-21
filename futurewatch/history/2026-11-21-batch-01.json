@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "FUTUREWATCH-2026-11-21-BATCH-01",
+  "schema_version": 1,
+  "as_of": "2026-11-21T08:06:11-05:00",
+  "source_register_path": "futurewatch/source-register-v1.json",
+  "source_register_blob_sha": "791df8cce6863413a86505257f79ada67fb7c4a1",
+  "states_discovered": 50,
+  "state_agency_landings_attempted": 50,
+  "state_agency_landings_checked": 32,
+  "state_agency_landings_blocked": 18,
+  "regulatory_rule_crosswalks_completed": 0,
+  "MA_MAP_in_depth_current_manual_validated": false,
+  "MA_MAP_latest_news_date": "2026-07-13",
+  "current_stage": "state agency directory discovery complete; regulatory rule validation outstanding",
+  "next_cursor": {
+    "phase": "state-specific regulation, Medicaid, DDS/DMH, professional board URL verification",
+    "state": "CT",
+    "setting": "group_home_residential",
+    "requirement": "medication_delegation_administration",
+    "batch": 2,
+    "position": 0
+  },
+  "research_finding": "July 2026 MAP manual published per official news; full current PDF not verified. Older PDF metadata/text mismatch. No verified post-Nov20 MAP regulatory change.",
+  "new_alert_ids": [],
+  "notifications_sent": 0,
+  "original_sources_preserved": true
+}

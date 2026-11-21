@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FUTURE4000 Platform</title>
+  <meta name="theme-color" content="#0F8B8D" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/pay4000-icon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -40,13 +44,16 @@
     <nav class="tabs side">
       <div class="side-search"><input id="side-search" placeholder="Search policies..." /></div>
       <button class="tab active" data-view="dashboard">Dashboard</button>
+      <button class="tab" data-view="app-catalog">50 Applications</button>
       <button class="tab" data-view="policies">Policies</button>
       <button class="tab" data-view="templates">F4 Templates</button>
       <button class="tab" data-view="learn">LearnTrack</button>
       <button class="tab" data-view="agents">AI Agents</button>
       <button class="tab" data-view="studio">F4 Studio</button>
       <button class="tab" data-view="homecare">Home Care</button>
+      <button class="tab admin-only" data-view="megahr">MEGAHOSPITAL HR4000</button>
       <button class="tab" data-view="integrations">4000 Connect</button>
+      <button class="tab admin-only" data-view="pay4000">PAY4000 Invoices</button>
       <button class="tab admin-only" data-view="payments">Payment Time</button>
       <button class="tab admin-only" data-view="governance">AI Governance</button>
       <button class="tab admin-only" data-view="team">Team</button>
@@ -93,6 +100,19 @@
           <h2>Your compliance map</h2>
           <div id="reg-list" class="reg-list"></div>
         </div>
+      </section>
+
+      <!-- Registered applications; not a claim that all apps are deployed -->
+      <section id="app-catalog" class="view">
+        <div class="row-between"><div><h1>FUTURE4000 Application Center</h1><p class="lead">50 managed application records. Existing capabilities are distinguished from planned modules.</p></div><span class="tag">Private client workspace</span></div>
+        <div class="panel">
+          <label for="catalog-search">Find an application</label>
+          <input id="catalog-search" type="search" placeholder="Search apps, categories or capabilities..." aria-label="Search applications" />
+          <label for="catalog-category">Category</label>
+          <select id="catalog-category"><option value="">All categories</option></select>
+          <p id="catalog-status" class="muted small" role="status">Open Application Center to load the secured registry.</p>
+        </div>
+        <div id="catalog-grid" class="grid"></div>
       </section>
 
       <!-- Policies -->
@@ -351,6 +371,40 @@
       <section id="audit" class="view">
         <div class="row-between"><h1>Audit Log</h1><a class="secondary btn" href="/api/audit?format=csv&limit=1000">Download CSV</a></div>
         <table class="table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Item</th><th>Details</th></tr></thead><tbody id="audit-body"></tbody></table>
+      </section>
+
+      <!-- PAY4000 own-software invoicing; no card capture, no money movement -->
+      <section id="pay4000" class="view">
+        <div class="row-between"><div><h1>PAY4000 — Business Billing</h1><p class="lead">Create invoices, track receivables and reconcile payments documented outside this platform.</p></div><span class="tag">Private workspace</span></div>
+        <p class="small muted">PAY4000 does not process payment cards, transfer funds, or automatically charge customers. Never enter card numbers, bank credentials or patient data.</p>
+        <div class="grid" id="p4-summary"></div>
+        <form id="p4-invoice-form" class="panel">
+          <h2>Create an invoice</h2>
+          <label>Customer or organization name<input name="client_name" maxlength="180" required /></label>
+          <label>Customer billing email<input name="client_email" type="email" maxlength="190" /></label>
+          <label>Service description (no patient data)<input name="description" maxlength="500" required /></label>
+          <label>Amount (USD)<input name="amount_usd" type="number" step="0.01" min="0.01" max="10000000" required /></label>
+          <label>Due date<input name="due_date" type="date" /></label>
+          <button type="submit">Save draft invoice</button>
+        </form>
+        <div id="p4-msg" class="notice hidden" role="status"></div>
+        <div class="panel"><h2>Invoices</h2><div id="p4-list">Open PAY4000 to load invoices.</div></div>
+      </section>
+
+      <section class="view" id="megahr">
+        <div class="row-between"><div><h1>MEGAHOSPITAL HR4000</h1><p class="lead">Personnel orientation &amp; 900 controlled HR forms — 50 roles × 18 forms</p></div><span class="tag">Draft templates / clinical review required</span></div>
+        <div class="panel">
+          <p>Search hospital roles, review linked CMS Conditions of Participation, and generate unfilled forms. These templates contain no employee records.</p>
+          <div class="grid">
+            <label>Hospital role<select id="mh-role"><option value="">Select hospital role</option></select></label>
+            <label>HR form type<select id="mh-form"><option value="">Select form type</option></select></label>
+          </div>
+          <button type="button" id="mh-generate">Preview blank HR form</button>
+          <button type="button" class="secondary" id="mh-orient">View personnel orientation</button>
+          <a class="secondary btn" href="/api/megahr/forms.csv" download>Download 900-form catalog CSV</a>
+          <div id="mh-status" class="notice hidden" role="status"></div>
+        </div>
+        <div class="panel"><h2>Personnel orientation and regulatory references</h2><div id="mh-output" aria-live="polite">Select a role to review department and hospital-wide orientation policies.</div></div>
       </section>
 
       <!-- Billing -->

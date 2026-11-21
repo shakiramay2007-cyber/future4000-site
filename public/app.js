@@ -806,3 +806,137 @@ $('#studio-copy').addEventListener('click', async () => {
 buildStudioPrompt();
 
 boot();
+
+
+// ---------- FUTURE4000 Application Center (read-only capabilities registry) ----------
+let CATALOG = [];
+const catalogRoutes = {
+  POLICY4000: 'policies',
+  ACCRE4000: 'dashboard',
+  SURVEY4000: 'templates',
+  LMS4000: 'learn',
+  VIKTOR4000: 'agents',
+  CONNECT4000: 'integrations'
+};
+function renderCatalog() {
+  const term = String($('#catalog-search')?.value || '').trim().toLowerCase();
+  const category = $('#catalog-category')?.value || '';
+  const filtered = CATALOG.filter(a => (!category || a.category === category) &&
+    (!term || [a.id, a.category, a.description].join(' ').toLowerCase().includes(term)));
+  $('#catalog-status').textContent = `${filtered.length} of ${CATALOG.length} applications. "Existing capability" is not a production-readiness certification.`;
+  $('#catalog-grid').innerHTML = filtered.map(a => {
+    const active = a.status === 'existing-capability';
+    const target = catalogRoutes[a.id];
+    return `<article class="card">
+      <h3>${esc(a.name)}</h3>
+      <p class="small muted">${esc(a.category)}</p>
+      <p>${esc(a.description)}</p>
+      <p class="small muted"><strong>Required:</strong> website, dashboard, frontend, backend, database, identity, security, tests.</p>
+      <span class="tag ${active ? 'connected' : 'needs'}">${active ? 'Existing code capability' : 'Planned - not deployed'}</span>
+      ${target ? `<button type="button" class="secondary catalog-open" data-target="${esc(target)}">Open existing workspace</button>` : ''}
+    </article>`;
+  }).join('') || '<p class="muted">No matching applications.</p>';
+  $$('#catalog-grid .catalog-open').forEach(button => button.addEventListener('click', () => {
+    const target = document.querySelector(`.tab[data-view="${button.dataset.target}"]`);
+    if (target && !target.classList.contains('hidden')) target.click();
+  }));
+}
+async function loadAppCatalog() {
+  try {
+    const result = await api('/api/app-catalog');
+    CATALOG = Array.isArray(result.applications) ? result.applications : [];
+    const categories = [...new Set(CATALOG.map(a => a.category))];
+    $('#catalog-category').innerHTML = '<option value="">All categories</option>' +
+      categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    renderCatalog();
+  } catch (err) { show($('#catalog-status'), err.message, 'bad'); }
+}
+document.querySelector('[data-view="app-catalog"]').addEventListener('click', loadAppCatalog);
+$('#catalog-search').addEventListener('input', renderCatalog);
+$('#catalog-category').addEventListener('change', renderCatalog);
+
+
+// ---------- PAY4000: independent billing workspace (no card data) ----------
+const p4money = cents => '$' + (Number(cents || 0) / 100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+async function loadPay4000() {
+  try {
+    const [summary, detail] = await Promise.all([api('/api/billing4000/dashboard'), api('/api/billing4000/invoices')]);
+    $('#p4-summary').innerHTML = ['draft','issued','paid','void'].map(status=>{
+      const group = summary.groups.find(g => g.status === status) || {count:0,amount_cents:0};
+      return `<div class="card"><h3>${esc(status.toUpperCase())}</h3><b>${esc(group.count)}</b><p>${esc(p4money(group.amount_cents))}</p></div>`;
+    }).join('');
+    $('#p4-list').innerHTML = detail.invoices.length ? `<table class="table"><thead><tr><th>Number</th><th>Client</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>${detail.invoices.map(i=>`
+    <tr><td>${esc(i.invoice_number)}</td><td>${esc(i.client_name)}</td><td>${esc(p4money(i.amount_cents))}</td><td>${esc(i.status)}</td>
+    <td>${i.status==='draft'? `<button type="button" data-id="${Number(i.id)}" data-state="issued" class="p4-transition secondary">Issue</button>` : ''}
+    ${i.status==='issued'? `<button type="button" data-id="${Number(i.id)}" data-state="paid" class="p4-transition secondary">Reconcile</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No invoices yet.</p>';
+    $$('#p4-list .p4-transition').forEach(btn=>btn.addEventListener('click', async()=>{
+      const desired=btn.dataset.state;
+      if(desired==='paid'){
+        const payment_reference=prompt('Enter an independently verified external settlement reference (do not enter card or bank details):');
+        if(!payment_reference)return;
+        const payment_method=prompt('Enter method label (e.g. external bank transfer), with no account numbers:');
+        if(!payment_method)return;
+        try {await api('/api/billing4000/invoices/'+btn.dataset.id+'/status',{method:'POST',body:{status:desired,payment_reference,payment_method}});await loadPay4000();}
+        catch(e){show($('#p4-msg'),e.message,'bad');}
+      } else {
+        try {await api('/api/billing4000/invoices/'+btn.dataset.id+'/status',{method:'POST',body:{status:desired}});await loadPay4000();}
+        catch(e){show($('#p4-msg'),e.message,'bad');}
+      }
+    }));
+  }catch(e){show($('#p4-msg'),e.message,'bad');}
+}
+$('[data-view="pay4000"]').addEventListener('click', loadPay4000);
+$('#p4-invoice-form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const form=new FormData(e.currentTarget);
+  const amount=Number(form.get('amount_usd'));
+  if(!Number.isFinite(amount)||amount<=0||!Number.isSafeInteger(Math.round(amount*100))){show($('#p4-msg'),'Enter a valid positive dollar amount.','bad');return;}
+  const body={client_name:form.get('client_name'),client_email:form.get('client_email'),description:form.get('description'),amount_cents:Math.round(amount*100),due_date:form.get('due_date')||null};
+  try {await api('/api/billing4000/invoices',{method:'POST',body});e.currentTarget.reset();show($('#p4-msg'),'Draft invoice saved.','ok');await loadPay4000();}
+  catch(err){show($('#p4-msg'),err.message,'bad');}
+});
+
+// PAY4000 installed web app: never cache private invoices, records, API responses or payment data.
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('/pay4000-sw.js').catch(() => {});
+}
+
+
+// MEGAHOSPITAL HR4000 - private, read-only template generator.
+// All data here is model content, not live employee information.
+let MH_CATALOG=null;
+async function loadMegaHr() {
+  try {
+    MH_CATALOG=await api('/api/megahr/catalog');
+    $('#mh-role').innerHTML='<option value="">Select hospital role</option>'+
+      MH_CATALOG.roles.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.department+' — '+r.title)+'</option>').join('');
+    $('#mh-form').innerHTML='<option value="">Select form type</option>'+
+      MH_CATALOG.formTypes.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.id+' — '+t.title)+'</option>').join('');
+    $('#mh-output').textContent='Loaded '+MH_CATALOG.roles.length+' roles, '+MH_CATALOG.formTypes.length+' form types and '+MH_CATALOG.policies.length+' policy references. Select a role to view orientation.';
+  }catch(e){show($('#mh-status'),e.message,'bad');}
+}
+$('[data-view="megahr"]').addEventListener('click',loadMegaHr);
+$('#mh-orient').addEventListener('click',async()=>{
+  const role=$('#mh-role').value;if(!role){show($('#mh-status'),'Choose a role.','bad');return;}
+  try{
+    const data=await api('/api/megahr/orientation/'+encodeURIComponent(role));
+    $('#mh-output').innerHTML='<h3>'+esc(data.role.title)+'</h3>'+
+      '<p>Department: '+esc(data.role.department)+' · '+esc(data.approvalStatus)+'</p>'+
+      '<p><strong>Required policy orientation and review:</strong></p>'+
+      '<ol>'+data.policies.map(p=>'<li><strong>'+esc(p.title)+'</strong><p class="small">Authority / mapping: '+esc(p.authority)+' · Teaching emphasis: '+esc(p.lesson)+'</p></li>').join('')+'</ol>'+
+      '<p class="small muted">'+esc(data.reviewCycle)+'</p>';
+  }catch(e){show($('#mh-status'),e.message,'bad');}
+});
+$('#mh-generate').addEventListener('click',async()=>{
+  const role=$('#mh-role').value,form=$('#mh-form').value;
+  if(!role||!form){show($('#mh-status'),'Choose a role and HR form type.','bad');return;}
+  try{
+    const d=await api('/api/megahr/forms/'+encodeURIComponent(role)+'/'+encodeURIComponent(form));
+    $('#mh-output').innerHTML='<h3>'+esc(d.id+' — '+d.form.title)+'</h3>'+
+      '<p>'+esc(d.form.purpose)+'</p>'+
+      '<p><strong>Blank template fields (not yet an employee record):</strong></p>'+
+      '<div class="grid">'+d.fields.map(k=>'<label>'+esc(k.replace(/_/g,' '))+'<input disabled placeholder="Complete only in authorized HR system"></label>').join('')+'</div>'+
+      '<p class="small muted">'+esc(d.warning)+'</p>'+
+      '<p>Linked orientation policy IDs: '+d.orientationPolicyIds.map(esc).join(', ')+'</p>';
+  }catch(e){show($('#mh-status'),e.message,'bad');}
+});

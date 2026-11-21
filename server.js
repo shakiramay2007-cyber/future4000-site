@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { AGENTS } from './src/agents.js';
 import { aiConfigured, aiStatus } from './src/ai.js';
 import { migrate, dbConfigured } from './src/db.js';
-import { loadUser } from './src/auth.js';
+import { loadUser, requireUser } from './src/auth.js';
+import { APPS } from './src/appCatalog.js';
 import { router, handleStripeEvent } from './src/routes.js';
 import { storageProvider } from './src/cloud.js';
 import { learnRouter } from './src/learn.js';
@@ -13,6 +14,8 @@ import { govRouter } from './src/governance.js';
 import { payRouter } from './src/pay.js';
 import { connectRouter } from './src/connect.js';
 import { hcRouter } from './src/homecare.js';
+import { billingRouter } from './src/billing4000.js';
+import { megaHrRouter } from './src/megaHrRoutes.js';
 import { resumeJobs } from './src/jobs.js';
 import { listIntegrations, testIntegration } from './src/integrations.js';
 import { PLANS } from './src/plans.js';
@@ -64,12 +67,16 @@ app.get('/api/status', (_req, res) => res.json({
   stripeMode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live') ? 'live' : (process.env.STRIPE_SECRET_KEY ? 'test' : 'off')
 }));
 
+// Secure catalog metadata: the registry exposes no private client data or credentials.
+app.get('/api/app-catalog', requireUser, (_req, res) => res.json({ applications: APPS, total: APPS.length }));
 app.use('/api', router);
 app.use('/api/learn', learnRouter);
 app.use('/api/governance', govRouter);
 app.use('/api/pay', payRouter);
 app.use('/api/connect', connectRouter);
 app.use('/api/homecare', hcRouter);
+app.use('/api/billing4000', billingRouter);
+app.use('/api/megahr', megaHrRouter);
 
 // Agents
 app.get('/api/agents', (_req, res) => res.json(AGENTS.map(({ prompt, ...a }) => a)));
